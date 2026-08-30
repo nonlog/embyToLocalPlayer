@@ -14,12 +14,14 @@ No functional Ryot code belongs to S0.
 
 ## S0.5 - GitHub CI baseline
 
-- Add a GitHub Actions workflow for pushes and pull requests.
-- Select a supported Python version from the project's current compatibility.
-- Add syntax/import checks that do not require live Emby/Trakt credentials.
-- Add unit tests for provider-dispatch helpers as they are extracted.
-- Keep artifacts/logs free of credentials.
+- [x] Add a GitHub Actions workflow for branch pushes, pull requests and manual dispatches.
+- [x] Verify the documented Python 3.8 minimum and Python 3.13 current baseline.
+- [x] Add credential-free compile checks for the Python source tree.
+- [x] Add credential-free import smoke tests for Trakt, Simkl and Bangumi provider API modules.
+- [x] Defer provider-dispatch helper unit tests until a testable helper is extracted during Ryot integration instead of refactoring playback code solely for CI.
+- [x] Verify the baseline on GitHub Actions run `33319956224`.
 
+See `docs/CI.md` for the verified contract.
 ## S1 - Ryot connection contract
 
 - Deploy/select a Ryot v10 test instance.
