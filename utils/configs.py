@@ -228,7 +228,7 @@ class Configs:
             return res
         return ini
 
-    def _pot_version_is_too_high(self, player_path=''):
+    def _pot_version_code(self, player_path=''):
         player = self.raw['emby']['player']
         exe = self.raw['exe'].get(player, fallback='')
         if player_path:
@@ -255,10 +255,11 @@ class Configs:
                             break
             except OSError:
                 continue
-        if versions:
-            version = max(versions, key=int)
-            if int(version) > 240618:
-                return version
+        return max(versions, key=int) if versions else None
+
+    def _pot_version_is_too_high(self, player_path=''):
+        version = self._pot_version_code(player_path=player_path)
+        return version if version and int(version) > 240618 else None
 
     def potplayer_executable(self, exe):
         direct = self.raw.get('potplayer', 'direct_exe', fallback='').strip()
@@ -294,9 +295,15 @@ class Configs:
     def media_title_translate(self, media_title=None, get_trans=False, log=True, player_path=''):
         map_pair = self.raw.get('dev', 'media_title_translate', fallback='')
         if not map_pair:
-            if pot_ver := self._pot_version_is_too_high(player_path=player_path):
+            pot_ver = self._pot_version_code(player_path=player_path)
+            if pot_ver and int(pot_ver) > 240618:
                 map_pair = """'，＇，"，＂， ，-"""
-                log and MyLogger.log(f'{pot_ver=}, gather than 240618, trans title to fix error')
+                log and MyLogger.log(f'{pot_ver=}, greater than 240618, trans title to fix error')
+            elif pot_ver == '240618':
+                # 240618 accepts spaces/apostrophes but an ASCII double quote can
+                # make command-line title parsing fail and leave Pot without media.
+                map_pair = '"，＂'
+                log and MyLogger.log('pot_ver=240618, replace ASCII double quote in title')
         if not map_pair:
             if get_trans:
                 return

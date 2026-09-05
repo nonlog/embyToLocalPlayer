@@ -39,6 +39,26 @@ class ConfigAndPotTests(unittest.TestCase):
             obj.raw.read_dict({'emby': {'player': 'pot'}, 'exe': {'pot': str(exe)}})
             self.assertEqual(obj._pot_version_is_too_high(), '260401')
 
+    def test_pot_title_translation_is_version_specific(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            exe = root / 'PotPlayerMini64.exe'
+            exe.touch()
+            history = root / 'History'
+            history.mkdir()
+            version_file = history / 'Chinese.txt'
+            obj = object.__new__(Configs)
+            obj.raw = configparser.ConfigParser()
+            obj.raw.read_dict({'emby': {'player': 'pot'}, 'exe': {'pot': str(exe)}, 'dev': {}})
+
+            version_file.write_text('[240618]\nchanges\n', encoding='utf-8')
+            old_title = obj.media_title_translate('A "Quoted" Title', player_path=str(exe), log=False)
+            self.assertEqual(old_title, 'A ＂Quoted＂ Title')
+
+            version_file.write_text('[251126]\nchanges\n', encoding='utf-8')
+            new_title = obj.media_title_translate("A 'Quoted' \"Title\"", player_path=str(exe), log=False)
+            self.assertEqual(new_title, 'A-＇Quoted＇-＂Title＂')
+
     def test_pot_instance_arguments_and_stream_alias(self):
         original = configs.raw
         try:

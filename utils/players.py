@@ -782,9 +782,11 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, progress_callback=No
 
     def potplayer_time_title_updater(_pid):
         nonlocal last_moving_sec, last_change_at
+        active_window_found = False
 
         def send_message(hwnd):
-            nonlocal stop_sec, name_stop_sec_dict, name_total_sec_dict, last_moving_sec, last_change_at
+            nonlocal stop_sec, name_stop_sec_dict, name_total_sec_dict
+            nonlocal last_moving_sec, last_change_at, active_window_found
             target_pid = ctypes.c_ulong()
             user32.GetWindowThreadProcessId(hwnd, ctypes.byref(target_pid))
             if _pid != target_pid.value or not user32.IsWindowVisible(hwnd):
@@ -798,20 +800,21 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, progress_callback=No
             if 'PotPlayer' not in raw_title:
                 return
             msg_cur_time = send_message_timeout(hwnd, 0x400, 0x5004, 1)
-            if not msg_cur_time:
+            msg_total_time = send_message_timeout(hwnd, 0x400, 0x5002, 1)
+            if not msg_cur_time and not msg_total_time:
                 return
+            current_sec = msg_cur_time // 1000 if msg_cur_time else 0
+            total_sec = msg_total_time // 1000 if msg_total_time else None
+            if current_sec > 10 * 60 * 60:
+                return
+            if total_sec and (total_sec > 24 * 60 * 60 or current_sec > total_sec + 60):
+                return
+            active_window_found = True
             if check_only:
                 stop_sec = 'check_only'
                 return
-            current_sec = msg_cur_time // 1000
-            if current_sec > 10 * 60 * 60:
-                return
             suffix = ' - PotPlayer'
             title = raw_title[:-len(suffix)] if raw_title.endswith(suffix) else raw_title
-            msg_total_time = send_message_timeout(hwnd, 0x400, 0x5002, 1)
-            total_sec = msg_total_time // 1000 if msg_total_time else None
-            if total_sec and (total_sec > 24 * 60 * 60 or current_sec > total_sec + 60):
-                return
             stop_sec = current_sec
             name_stop_sec_dict[title] = stop_sec
             prefetch_data['stop_sec_dict'][title] = stop_sec
@@ -833,17 +836,28 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, progress_callback=No
 
         proc = EnumWindowsProc(for_each_window)
         user32.EnumWindows(proc, 0)
+        return active_window_found
 
     stop_sec = None
     name_stop_sec_dict = {}
     name_total_sec_dict = {}
+    seen_active_window = False
+    missing_active_polls = 0
     while True:
-        if not process_is_running_by_pid_window_exist(pid):
+        if not process_is_running_by_pid_window_exist(pid, timeout=0.5):
             logger.all('pot not running')
             break
+        active_window_found = potplayer_time_title_updater(pid)
         if check_only and stop_sec == 'check_only':
             return True
-        potplayer_time_title_updater(pid)
+        if active_window_found:
+            seen_active_window = True
+            missing_active_polls = 0
+        elif seen_active_window:
+            missing_active_polls += 1
+            if missing_active_polls >= 3:
+                logger.all('pot playback window closed')
+                break
         logger.all(f'pot stop, {stop_sec=}')
         time.sleep(0.3)
     if check_only:
