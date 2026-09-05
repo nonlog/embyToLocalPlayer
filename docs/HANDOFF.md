@@ -58,9 +58,9 @@ Windows-log can reach `https://floppy.414222.xyz/api/v1/info/`; it returned HTTP
 The production Scoop package has been moved from upstream to this fork and upgraded in place:
 
 - Scoop bucket: `www` (`nonlog/scoop-www`)
-- Installed version: `2026.09.05.5`
-- Release: `nonlog/embyToLocalPlayer` tag `2026.09.05.5`
-- Runtime commit for the patch release: `cc3b7ee9565996cfd2bd08279e3ec7ca7b1f75e8`
+- Installed version: `2026.09.05.6`
+- Release: `nonlog/embyToLocalPlayer` tag `2026.09.05.6`
+- Runtime commit for the patch release: `2a0d47c187f92421714944e5bff44e2588de5f71`
 - Persistent config: `D:\Programs\Scoop\persist\embyToLocalPlayer\embyToLocalPlayer_config.ini`
 - The persistent INI SHA-256 stayed identical across both Scoop upgrades, so existing settings were preserved.
 - New shim: `embyToLocalPlayer_config` starts the standalone Tkinter configuration GUI.
@@ -68,6 +68,7 @@ The production Scoop package has been moved from upstream to this fork and upgra
 - Background server smoke test on the installed package returned HTTP 200 from `127.0.0.1:58000` and the listener was cleanly removed after the test.
 - Installed GUI smoke test loaded the real legacy INI without changing runtime defaults for missing new options. A dedicated regression test now covers those defaults.
 - Floppy `v26.8.27` is reachable from Windows-log. The user's configured Floppy token passes a real read-only authentication test; the bridge loads as enabled with `timeout=5`, `progress_interval=30`, and completion threshold `80%`. No credential is stored in Git. `2026.09.05.4` fixes the GUI connection-test false 403 by reusing `FloppyClient` (including the runtime `User-Agent`) instead of issuing a separate bare urllib request that Cloudflare rejected.
+- `2026.09.05.6` fixes the PotPlayer/Floppy completion failure found with PotPlayer `260819`: a blank `[potplayer] pause_detect_seconds` now falls back to 3 seconds instead of raising `ValueError`. Floppy `start` is delayed until playlist setup succeeds, so a playlist-init exception can no longer leave a stale Now Playing card without a matching `stop`. The INI editor regex was also fixed so replacing an existing blank value stays on the same line rather than creating an invalid bare-value line; Windows-log's live config was repaired and verified parseable with its Scoop hardlink preserved. Python 3.14 invalid-escape warnings in the old Telegram strings were cleaned up as well. The installed `.6` package was validated with blank pause config (`3.0` fallback), blank-value INI editing, and Floppy event ordering (`[]` after player start, then `playlist -> start` after playlist setup).
 - `2026.09.05.5` restores the `embyToLocalPlayer_config.bat`/`pythonw.exe` launcher after the `.4` GUI test change exposed an old `sys.stdout is None` assumption in `utils/configs.py`. The GUI now lazy-imports the runtime Floppy client, runtime stdout handling is pythonw-safe, and the Floppy page exposes a readonly `80 / 90 / 95` completion-threshold selector with inline guidance (`90` recommended). Windows-log validation launched the actual `.bat`, observed a live `pythonw.exe config_gui.py` process, and successfully ran the Floppy connection test under pythonw.
 - `2026.09.05.3` also fixes blank Floppy numeric settings so empty or invalid values fall back safely instead of crashing playback, and avoids constructing a Floppy client at all when Floppy is disabled.
 - The config GUI previously used `os.replace()` and could break Scoop's hardlink between the runtime INI and `persist`. The editor now detects symlinks/hardlinks and writes through the linked file. Windows-log's split config was reconciled, the `[floppy]` section was repaired, and a real no-op GUI-style save kept the hardlink intact. After cleanup, runtime and persist are the same hardlink with `nlink=2` and matching SHA-256.
