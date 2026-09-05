@@ -52,17 +52,20 @@ GUI smoke validation created the window in withdrawn mode and loaded all seven t
 
 Windows-log can reach `https://floppy.414222.xyz/api/v1/info/`; it returned HTTP 200 and Floppy `v26.8.27`. No Floppy credential is committed to this repository, so authenticated write testing requires a user-created Floppy integration/API token.
 
-## Existing installed deployment discovered on Windows-log
+## Production deployment on Windows-log
 
-The currently installed production copy is still the upstream Scoop package:
+The production Scoop package has been moved from upstream to this fork and upgraded in place:
 
-- Scoop bucket: `www`
-- Installed version: `2026.07.18`
-- Package source/homepage: upstream `kjtsune/embyToLocalPlayer`
+- Scoop bucket: `www` (`nonlog/scoop-www`)
+- Installed version: `2026.09.05.1`
+- Release: `nonlog/embyToLocalPlayer` tag `2026.09.05.1`
+- Runtime commit for the patch release: `c18694805e570c3c287ba8d6426e965a16d648a9`
 - Persistent config: `D:\Programs\Scoop\persist\embyToLocalPlayer\embyToLocalPlayer_config.ini`
-- Configured player: `pot`
-- Configured Pot path: `D:\Tools\Player\PotPlayer\PotPlayerMini64.exe` (240618)
-- Server progress reporting: enabled
-- No ETLP Python background process was running during validation.
+- The persistent INI SHA-256 stayed identical across both Scoop upgrades, so existing settings were preserved.
+- New shim: `embyToLocalPlayer_config` starts the standalone Tkinter configuration GUI.
+- Configured player remains `pot` at `D:\Tools\Player\PotPlayer\PotPlayerMini64.exe` (240618).
+- Background server smoke test on the installed package returned HTTP 200 from `127.0.0.1:58000` and the listener was cleanly removed after the test.
+- Installed GUI smoke test loaded the real legacy INI without changing runtime defaults for missing new options. A dedicated regression test now covers those defaults.
+- Floppy `v26.8.27` public API is reachable from Windows-log. Floppy writes remain disabled until an API/integration token is configured; no credential is stored in Git or guessed during deployment.
 
-The development checkout used for testing is separate at `D:\Workspace\embyToLocalPlayer-floppy`; its `.tmp` runtime fixtures are not part of Git.
+The development checkout used for validation is separate at `D:\Workspace\embyToLocalPlayer-floppy`; its `.tmp` runtime fixtures are not part of Git.
