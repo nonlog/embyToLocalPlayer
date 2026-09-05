@@ -90,6 +90,23 @@ class FloppyPlaybackBridgeTests(unittest.TestCase):
         self.assertEqual(client.timeout, 5.0)
         self.assertTrue(client.verify_ssl)
 
+    def test_floppy_client_sends_runtime_user_agent(self):
+        captured = {}
+
+        class Response:
+            def read(self):
+                return b'{}'
+
+        def opener(req, **kwargs):
+            captured['user_agent'] = req.get_header('User-agent')
+            captured['api_key'] = req.get_header('X-api-key')
+            return Response()
+
+        client = FloppyClient(base_url='https://floppy.test', token='secret', opener=opener)
+        self.assertEqual(client.test_connection(), {})
+        self.assertEqual(captured['user_agent'], 'embyToLocalPlayer/floppy')
+        self.assertEqual(captured['api_key'], 'secret')
+
 
 if __name__ == '__main__':
     unittest.main()

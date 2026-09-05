@@ -4,9 +4,7 @@ import argparse
 import configparser
 import json
 import os
-import ssl
 import sys
-import urllib.request
 from pathlib import Path
 
 import tkinter as tk
@@ -14,6 +12,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from utils.config_editor import (get_boolean_with_runtime_default, get_text_with_runtime_default,
                                  update_ini_preserving_comments)
+from utils.floppy_sync import FloppyClient
 
 
 BOOL_FIELDS = {
@@ -212,13 +211,12 @@ class ConfigApp:
         if not base or not token:
             messagebox.showwarning('Floppy', 'Base URL and token are required.')
             return
-        req = urllib.request.Request(f'{base}/api/v1/user/preferences/',
-                                     headers={'X-API-Key': token, 'Accept': 'application/json'})
         verify = self.vars[('floppy', 'verify_ssl')].get()
-        context = None if verify else ssl._create_unverified_context()
+        timeout = self.vars[('floppy', 'timeout')].get().strip() or '5'
         try:
-            with urllib.request.urlopen(req, timeout=5, context=context) as response:
-                response.read(64)
+            client = FloppyClient(base_url=base, token=token, timeout=timeout,
+                                  verify_ssl=verify, config=self.config)
+            client.test_connection()
             messagebox.showinfo('Floppy', 'Connection and authentication succeeded.')
         except Exception as exc:
             messagebox.showerror('Floppy', f'Connection failed: {type(exc).__name__}: {str(exc)[:160]}')
