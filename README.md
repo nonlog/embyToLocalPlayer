@@ -469,10 +469,10 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 * 使用说明：
     1. [点击访问：Trakt app 管理页面](https://trakt.tv/oauth/applications)：   
        创建 app，名字任意，Redirect uri 填写: `http://localhost:58000/trakt_auth` ，然后保存。
-    2. ini 配置文件`[trakt]` 填写 `enable_host` `user_name` `client_id` `client_secret` 这四项。
-    3. 启动脚本，会自动跳验证页面。或者自行点击 app 详情页面的 `Authorize`
-       按钮，二次同意后，网页会显示 `etlp: trakt auth success`。etlp 目录下会自动生成 `trakt_token.json`
-    4. 播放一个视频，拖到最后，关闭播放器。看日志是否同步成功。
+    2. ini 配置文件`[trakt]` 填写 `enable_host` `user_name` `client_id` `client_secret` 这四项。`enable_host` 留空即完全禁用 Trakt。
+    3. ETLP 启动时不会主动连接、测试或登录 Trakt。首次授权时自行点击 app 详情页面的 `Authorize`
+       按钮，二次同意后，网页会显示 `etlp: trakt auth success`。etlp 目录下会自动生成 `trakt_token.json`。
+    4. Trakt API 只会在实际播放来源匹配 `enable_host` 且达到同步条件时按需调用。播放一个视频，拖到最后，关闭播放器后查看日志是否同步成功。
 * 常见问题：
     1. 若同步失败。电影看是否缺失IMDb，剧集看单集下方是否有 IMDb 或 TheTVDB。
 

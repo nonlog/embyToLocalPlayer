@@ -12,6 +12,7 @@ from utils.downloader import prefetch_resume_tv
 from utils.http_server import run_server
 from utils.tools import (configs, MyLogger, kill_multi_process, clean_tmp_dir)
 from utils.net_tools import check_redirect_cache_expired_loop
+from utils.provider_policy import STARTUP_PROBE_PROVIDERS
 
 if __name__ == '__main__':
     os.chdir(configs.cwd)
@@ -22,7 +23,7 @@ if __name__ == '__main__':
                                    r'/IINA|/VLC|/mpv)',
                            not_re='(tmux|greasyfork|github)')
 
-    for _provider in 'trakt', 'bangumi', 'simkl':
+    for _provider in STARTUP_PROBE_PROVIDERS:
         if configs.raw.get(_provider, 'enable_host', fallback=''):
             from utils.trakt_sync import trakt_sync_main
             from utils.bangumi_sync import bangumi_sync_main
