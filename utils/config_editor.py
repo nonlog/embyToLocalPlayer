@@ -5,6 +5,23 @@ import tempfile
 SECTION_RE = re.compile(r'^\s*\[([^]]+)\]\s*$')
 OPTION_RE = re.compile(r'^(\s*)([^#;][^=]*?)(\s*=\s*)(.*?)(\r?\n)?$')
 
+GUI_BOOL_DEFAULTS = {
+    ('emby', 'update_progress'): True,
+    ('emby', 'fullscreen'): True,
+    ('potplayer', 'controlled_instance'): True,
+    ('floppy', 'enable'): False,
+    ('floppy', 'verify_ssl'): True,
+    ('dev', 'use_system_proxy'): True,
+    ('dev', 'skip_certificate_verify'): False,
+    ('dev', 'pretty_title'): True,
+    ('dev', 'one_instance_mode'): True,
+}
+
+
+def get_boolean_with_runtime_default(config, section, option):
+    default = GUI_BOOL_DEFAULTS.get((section, option), False)
+    return config.getboolean(section, option, fallback=default)
+
 
 def update_ini_preserving_comments(path, changes):
     with open(path, 'r', encoding='utf-8-sig', newline='') as fh:

@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from utils.config_editor import update_ini_preserving_comments
+from utils.config_editor import get_boolean_with_runtime_default, update_ini_preserving_comments
 from utils.config_state import request_snapshot
 from utils.configs import Configs, configs
 from utils.request_overrides import apply_request_overrides
@@ -11,6 +11,18 @@ from utils import players
 
 
 class ConfigAndPotTests(unittest.TestCase):
+    def test_gui_boolean_defaults_match_runtime_defaults(self):
+        conf = configparser.ConfigParser()
+        self.assertTrue(get_boolean_with_runtime_default(conf, 'emby', 'update_progress'))
+        self.assertTrue(get_boolean_with_runtime_default(conf, 'emby', 'fullscreen'))
+        self.assertTrue(get_boolean_with_runtime_default(conf, 'potplayer', 'controlled_instance'))
+        self.assertFalse(get_boolean_with_runtime_default(conf, 'floppy', 'enable'))
+        self.assertTrue(get_boolean_with_runtime_default(conf, 'floppy', 'verify_ssl'))
+        self.assertTrue(get_boolean_with_runtime_default(conf, 'dev', 'use_system_proxy'))
+        self.assertFalse(get_boolean_with_runtime_default(conf, 'dev', 'skip_certificate_verify'))
+        self.assertTrue(get_boolean_with_runtime_default(conf, 'dev', 'pretty_title'))
+        self.assertTrue(get_boolean_with_runtime_default(conf, 'dev', 'one_instance_mode'))
+
     def test_line_preserving_editor_keeps_comments(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / 'x.ini'
