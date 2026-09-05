@@ -11,6 +11,9 @@ from http.server import HTTPServer
 from socketserver import ThreadingMixIn
 
 from utils.data_parser import parse_received_data_emby, parse_received_data_plex, list_episodes
+from utils.config_state import save_request_snapshot
+from utils.floppy_sync import FloppyPlaybackBridge
+from utils.request_overrides import apply_request_overrides
 from utils.downloader import DownloadManager
 from utils.net_tools import update_server_playback_progress, sync_third_party_for_eps
 from utils.player_manager import PlayerManager
@@ -75,6 +78,14 @@ class UserScriptRequestHandler(BaseHTTPRequestHandler):
                 # tkinter 不是线程安全的，可能会导致退出。
                 return True
             data = parse_received_data_emby(data) if self.path.startswith('/emby') else parse_received_data_plex(data)
+            try:
+                data = apply_request_overrides(data)
+            except ValueError as exc:
+                logger.error(f'request override ignored: {exc}')
+            try:
+                save_request_snapshot(data)
+            except OSError as exc:
+                logger.warn(f'last request snapshot failed: {type(exc).__name__}')
             logger.info(f"server={data['server']}/{data.get('server_version')} {data['mount_disk_mode']=}")
             if configs.check_str_match(_str=data['netloc'], section='gui', option='except_host'):
                 threading.Thread(target=start_play, args=(data,), daemon=True).start()
@@ -309,9 +320,12 @@ def start_play(data):
             return
 
         player_function = start_player_func_dict[player_name]
+        floppy = FloppyPlaybackBridge(data)
         stop_sec_kwargs = player_function(cmd=cmd, start_sec=start_sec, sub_file=sub_file, media_title=media_title,
                                           mount_disk_mode=mount_disk_mode, data=data)
-        stop_sec = stop_sec_func_dict[player_name](**stop_sec_kwargs)
+        floppy.start(position=start_sec)
+        stop_sec = stop_sec_func_dict[player_name](progress_callback=floppy.observe, **stop_sec_kwargs)
+        floppy.stop(position=stop_sec, duration=data.get('total_sec'))
         logger.info('stop_sec', stop_sec)
         if stop_sec is None:
             player_is_running = False

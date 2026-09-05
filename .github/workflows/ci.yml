@@ -36,7 +36,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Compile Python sources
-        run: python -m compileall -q embyToLocalPlayer.py utils embyBangumi
+        run: python -m compileall -q embyToLocalPlayer.py config_gui.py utils embyBangumi tests
 
   provider-imports:
     runs-on: ubuntu-latest
@@ -65,3 +65,21 @@ jobs:
           ):
               importlib.import_module(module)
           PY
+
+  unit-tests:
+    name: Python unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install minimal runtime dependency
+        run: python -m pip install 'requests>=2.31,<3'
+
+      - name: Run unit tests
+        run: python -m unittest discover -s tests -v

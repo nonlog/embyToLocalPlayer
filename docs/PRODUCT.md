@@ -2,40 +2,26 @@
 
 ## Goal
 
-Add optional self-hosted Ryot tracking to embyToLocalPlayer without disturbing its primary job: launching local players and reporting playback progress back to Emby/Jellyfin/Plex.
+Keep embyToLocalPlayer's existing Emby/Jellyfin/Plex + local-player behavior intact while adding three optional capabilities:
 
-Ryot should become another third-party tracking target beside Trakt, Bangumi and Simkl, not a replacement for server playback reporting.
+1. synchronize useful playback state to self-hosted Floppy through Floppy's public API;
+2. configure ETLP through a lightweight standalone Python/Tkinter GUI;
+3. restore reliable operation with current PotPlayer while retaining 240618 compatibility.
 
-## S0/S1 scope
+## Invariants
 
-- Preserve existing player launch, playlist and server progress behavior.
-- Preserve existing Trakt/Bangumi/Simkl integrations.
-- Add a Ryot provider behind the existing post-play third-party sync path.
-- Configure Ryot per media-server host using the same `enable_host` convention where practical.
-- Validate the selected Ryot API/sink contract against a deployed instance before implementing writes.
-- Keep GitHub as the canonical source/build location.
+- Media-server playback reporting remains the primary source of truth.
+- Floppy is additive and disabled by default.
+- Floppy failure never breaks local playback or server progress updates.
+- GUI is a configuration surface only; service/CLI startup works without importing it.
+- Existing mpv, VLC, MPC, IINA, Dandanplay and third-party sync behavior must not regress.
+- Player/request overrides are persisted in INI and visible to the user.
+- No permanent administrator requirement for PotPlayer.
 
-## Non-goals for the first stages
+## Acceptance criteria
 
-- Rewriting player management or IPC.
-- Replacing Emby/Jellyfin/Plex playback progress reporting with Ryot.
-- Implementing a complete Ryot client.
-- Reworking all existing provider modules into a large framework before Ryot proves the need.
-- Adding continuous scrobbling to every player in the first Ryot patch.
-- Removing or changing existing 90% watched behavior without a separate compatibility decision.
-
-## Current behavior to preserve
-
-The current code records final stop positions, writes progress back to the media server, then calls `sync_third_party_for_eps` for enabled providers. That function only sends items whose local playback reached more than 90% and deduplicates them per provider for the current process.
-
-The first Ryot slice should attach to that same proven completion path. Real-time start/progress/pause/resume support can follow later.
-
-## Initial acceptance criteria
-
-S1 is complete when:
-
-- Ryot can be enabled/disabled from configuration without affecting other providers;
-- configuration contains no committed credentials;
-- a connection/integration test can fail cleanly;
-- existing providers behave exactly as before when Ryot is disabled;
-- automated verification runs from GitHub.
+- Floppy receives start, pause/resume where observable, periodic progress, stop and completion data through public endpoints.
+- Episode identity is deterministic enough for Floppy (series external ID + season/episode preferred).
+- GUI can edit playback/player, request override, network/path behavior, PotPlayer and Floppy settings; latest sanitized request can be inspected.
+- PotPlayer works with local and HTTP media on old/current builds, does not lose the tracked PID through single-instance forwarding, and returns sane stop progress.
+- Automated tests cover new mapping/config/Pot compatibility helpers and GitHub CI executes them.

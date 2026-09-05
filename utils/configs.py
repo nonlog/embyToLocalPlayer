@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import pathlib
 import platform
@@ -235,25 +236,62 @@ class Configs:
         if 'potplayer' not in exe.lower():
             return
 
-        exe = pathlib.Path(exe)
-        pot_history = exe.parent / 'History' / 'English.txt'
-        if not pot_history.exists():
+        history_dir = pathlib.Path(exe).parent / 'History'
+        if not history_dir.exists():
             return
-        with open(pot_history, 'r', encoding='utf-8') as f:
-            for _ in range(50):
-                line = f.readline()
-                if not line:
-                    break
-                if line.strip().startswith('[') and line.strip().endswith(']'):
-                    version = line.strip()[1:-1]
-                    if version.isdigit() and int(version) > 240618:
-                        return version
+        # Portable and localized builds do not always ship History/English.txt.
+        # Scan all language histories and use the newest recognizable date code.
+        versions = []
+        for pot_history in history_dir.glob('*.txt'):
+            try:
+                with open(pot_history, 'r', encoding='utf-8', errors='ignore') as f:
+                    for _ in range(80):
+                        line = f.readline()
+                        if not line:
+                            break
+                        match = re.fullmatch(r'\[(\d{6})\]', line.strip())
+                        if match:
+                            versions.append(match.group(1))
+                            break
+            except OSError:
+                continue
+        if versions:
+            version = max(versions, key=int)
+            if int(version) > 240618:
+                return version
+
+    def potplayer_executable(self, exe):
+        direct = self.raw.get('potplayer', 'direct_exe', fallback='').strip()
+        if direct:
+            return direct
+        path = pathlib.Path(exe)
+        if 'portable' not in str(path).lower():
+            return exe
+        candidates = (
+            path.parent / 'App' / 'PotPlayer' / 'PotPlayerMini64.exe',
+            path.parent / 'App' / 'PotPlayer' / 'PotPlayerMini.exe',
+            path.parent / 'PotPlayerMini64.exe',
+            path.parent / 'PotPlayerMini.exe',
+        )
+        for candidate in candidates:
+            if candidate.exists():
+                MyLogger.log(f'potplayer: use direct executable instead of portable wrapper: {candidate}')
+                return str(candidate)
+        return exe
+
+    def player_extra_args(self, player):
+        raw = self.raw.get('player_args', player, fallback='').strip()
+        if not raw:
+            return []
+        try:
+            args = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f'player_args[{player}] must be a JSON array') from exc
+        if not isinstance(args, list) or not all(isinstance(arg, str) for arg in args):
+            raise ValueError(f'player_args[{player}] must be a JSON array of strings')
+        return args
 
     def media_title_translate(self, media_title=None, get_trans=False, log=True, player_path=''):
-        if '--|--' in str(None):
-            if get_trans:
-                return
-            return media_title
         map_pair = self.raw.get('dev', 'media_title_translate', fallback='')
         if not map_pair:
             if pot_ver := self._pot_version_is_too_high(player_path=player_path):

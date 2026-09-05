@@ -7,6 +7,7 @@ import urllib.parse
 from utils.configs import configs, MyLogger
 from utils.downloader import Downloader
 from utils.emby_api_thin import EmbyApiThin
+from utils.floppy_sync import FloppyPlaybackBridge
 from utils.net_tools import (get_redirect_url, requests_urllib, realtime_playing_request_sender,
                              update_server_playback_progress, sync_third_party_for_eps, check_miss_runtime_start_sec)
 from utils.players import start_player_func_dict, playlist_func_dict, stop_sec_func_dict, prefetch_data
@@ -26,6 +27,7 @@ class BaseInit:
         self.playlist_total_sec = {}
         self.is_http_sub = bool(data.get('sub_file'))
         self.emby_thin = EmbyApiThin(data)
+        self.floppy = FloppyPlaybackBridge(data)
 
 
 class BaseManager(BaseInit):
@@ -55,6 +57,7 @@ class BaseManager(BaseInit):
             self.player_kwargs = start_player_func_dict[self.player_name](**kwargs)
         except FileNotFoundError:
             raise FileNotFoundError(f'player not exists, check config ini file, {kwargs["cmd"][0]}') from None
+        self.floppy.start(position=kwargs['start_sec'])
 
     def playlist_add(self, eps_data=None):
         limit = configs.raw.getint('playlist', 'item_limit', fallback=-1)
@@ -73,6 +76,7 @@ class BaseManager(BaseInit):
 
         self.playlist_data = playlist_func_dict[self.player_name](data=self.data, eps_data=eps_data,
                                                                   **self.player_kwargs)
+        self.floppy.set_playlist_data(self.playlist_data)
 
     def http_sub_auto_next_ep_time_loop(self, key_field):
         playlist_data = tuple(self.playlist_data.items())
@@ -81,7 +85,9 @@ class BaseManager(BaseInit):
             if fist_ep and key != self.data[key_field]:
                 continue
             next_title, next_ep = playlist_data[index + 1] if index < len(playlist_data) - 1 else (None, None)
-            stop_sec = stop_sec_func_dict[self.player_name](stop_sec_only=True, **self.player_kwargs)
+            stop_sec = stop_sec_func_dict[self.player_name](stop_sec_only=True,
+                                                                       progress_callback=self.floppy.observe,
+                                                                       **self.player_kwargs)
             self.playlist_time[key] = stop_sec
             fist_ep = False
             if not next_ep or not stop_sec:
@@ -107,12 +113,15 @@ class BaseManager(BaseInit):
             logger.info('disable playlist cuz http sub, auto next ep mode enabled')
             self.http_sub_auto_next_ep_time_loop(key_field=key_field_map[self.player_name])
         else:
-            stop_fun_res = stop_sec_func_dict[self.player_name](stop_sec_only=False, **self.player_kwargs)
+            stop_fun_res = stop_sec_func_dict[self.player_name](stop_sec_only=False,
+                                                                         progress_callback=self.floppy.observe,
+                                                                         **self.player_kwargs)
             if isinstance(stop_fun_res, tuple):
                 self.playlist_time, self.playlist_total_sec = stop_fun_res
             else:
                 self.playlist_time = stop_fun_res
 
+        self.floppy.finish_playlist(self.playlist_time, self.playlist_total_sec)
         # 未兼容播放器多开，暂不处理
         prefetch_data['on'] = False
         prefetch_data['stop_sec_dict'].clear()

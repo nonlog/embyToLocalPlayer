@@ -306,10 +306,14 @@ def get_player_cmd(media_path, file_path, data=None):
         exe = config['exe'][player]
     except KeyError:
         raise ValueError(f'{player=}, {player} not found, check config ini file') from None
+    selected_player = player
     exe = config['dandan']['exe'] if use_dandan_exe_by_path(file_path, data=data) else exe
     if player_by_path := select_player_by_path(file_path, data=data):
+        selected_player = player_by_path
         exe = config['exe'][player_by_path]
-    result = [exe, media_path]
+    if selected_player == 'pot' or 'potplayer' in exe.lower():
+        exe = configs.potplayer_executable(exe)
+    result = [exe, media_path, *configs.player_extra_args(selected_player)]
     _logger.info('command line:', result)
     if not media_path.startswith('http') and not os.path.exists(media_path):
         raise FileNotFoundError(f'{media_path}\nmay need to disable read disk mode, '

@@ -1,6 +1,7 @@
 # ref: https://sjohannes.wordpress.com/tag/win32/
 
 import ctypes
+from ctypes import wintypes
 import json
 import re
 import subprocess
@@ -12,6 +13,20 @@ logger = MyLogger()
 user32 = ctypes.windll.user32
 kernel32 = ctypes.windll.kernel32
 EnumWindowsProc = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int))
+
+
+def send_message_timeout(hwnd, msg, wparam=0, lparam=0, timeout_ms=250):
+    """Send a Win32 message without letting a hung/elevated window block ETLP."""
+    result = ctypes.c_size_t()
+    send = user32.SendMessageTimeoutW
+    send.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM,
+                     wintypes.UINT, wintypes.UINT, ctypes.POINTER(ctypes.c_size_t)]
+    send.restype = wintypes.LPARAM
+    SMTO_BLOCK = 0x0001
+    SMTO_ABORTIFHUNG = 0x0002
+    ok = send(hwnd, msg, wparam, lparam, SMTO_BLOCK | SMTO_ABORTIFHUNG,
+              int(timeout_ms), ctypes.byref(result))
+    return result.value if ok else 0
 
 
 def list_pid_and_cmd(name_re: str = '.') -> list:

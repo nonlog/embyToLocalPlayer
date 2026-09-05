@@ -7,6 +7,8 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
 * 在首页也可以播放。点击原来的播放按钮就可以。可配置版本优先级（若视频多版本）。
 * 播放列表（连续播放）支持，下一集保持相同版本。
 * bangumi.tv bgm.tv simkl.tv trakt.tv 单向标记已观看支持。
+* 可选 Floppy 同步：通过 Floppy 公共 API 同步开始、暂停/恢复、播放进度、停止和完成状态。
+* 独立轻量配置程序 `python config_gui.py`：不影响原有 CLI/后台运行，也不是运行依赖。
 * 本地挂载用户：可跳转到路径对应文件夹。（按钮在网页显示文件路径的上面）
 * 未适配的播放器一般也能用，只是不会回传进度。
 * 可在 qBittorrent WebUI 里直接播放或者跳转到路径对应挂载文件夹。
@@ -46,6 +48,31 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
     * `embyToLocalPlayer.zip` (Windows / Linux / macOS)  
       安装 Python (勾选 add to path) [官网](https://www.python.org/downloads/)  
       修改配置文件：`embyToLocalPlayer_config.ini` 中的播放器路径，以及播放器选择。
+
+配置也可以通过独立 GUI 修改：
+
+```bash
+python config_gui.py
+```
+
+GUI 可编辑播放器/请求覆盖/网络与行为/PotPlayer/Floppy 参数，并可查看最近一次经过脱敏的媒体服务器请求。保存内容仍写回 INI；关闭 GUI 后后台服务照常独立运行。
+
+> Floppy（可选）
+
+本 fork 直接复用 Floppy 的 `/api/v1/scrobble/` 与 `/api/v1/playback/progress/`，不修改 Floppy 数据库。建议在 GUI 中配置，也可以手工填写：
+
+```ini
+[floppy]
+enable = yes
+base_url = https://floppy.example.com
+token = <integration/api token>
+enable_host = .
+progress_interval = 30
+completed_percent = 90
+verify_ssl = yes
+```
+
+电影优先使用 TMDB/IMDb/TVDB；剧集优先使用剧集所属 series 的外部 ID + 季/集号。Floppy 连接失败只记录警告，不会阻断播放器或 Emby/Jellyfin/Plex 原有进度回传。
 
 > 前置说明
 
@@ -318,15 +345,14 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
 <details>
 <summary>PotPlayer</summary>
 
-* 提示 `渲染 Pin 失败` 无法播放。或者日志提示 `KeyError: 'stream.mkv'`  
-  或者 `pot stop, stop_sec=None` 或者 `请求的操作需要提升` 解决方案：  
-  按以下依次修改，每次修改后尝试播放，还不行就无解，欢迎 PR。
-    1. 初始化 PotPlayer 设置。
-    2. 换 Pot 为 20240618 版本。
-    3. 换 Pot 为 最新版本 版本。
-    4. 本地用户查看`通用 FAQ` > `如何切换模式` 使用读盘模式。
-    5. 换 mpv 测试此否正常播放。
-       240618 版本下载链接。  
+* 本 fork 针对新版 PotPlayer 的 `渲染 Pin 失败`、`KeyError: 'stream.mkv'`、`pot stop, stop_sec=None` 和 `请求的操作需要提升` 做了兼容修复：
+    1. 起播显式使用 `/new`，避免 Pot 单实例转发后 ETLP 继续跟踪已经退出的临时 PID；播放列表追加使用 `/current`。
+    2. 播放列表同时记录美化标题、原始文件名、`media_basename` 和 HTTP URL basename（包括常见 `stream.mkv`）。
+    3. Win32 进度 IPC 改为带超时调用，并过滤非播放窗口与异常时长，避免错误窗口导致 `None`/异常进度。
+    4. 高版本检测会扫描本地化 `History/*.txt`，不再只依赖 `English.txt`。
+    5. 便携启动器若要求提权，配置 `[potplayer] direct_exe` 指向内部 `PotPlayerMini64.exe`；不建议让 ETLP 或 PotPlayer 长期以管理员身份运行。
+
+  仍有问题时再尝试初始化 PotPlayer 设置、读盘模式，或用 240618/最新版交叉验证。240618 下载链接：
        [potplayer-1-7-22286.exe (v240618)](https://potplayer.en.uptodown.com/windows/download/1018490678)
        | [Scoop](https://github.com/ScoopInstaller/Extras/blob/108f0c0d42347a1cb9a16d8effdad09a7059c22b/bucket/potplayer.json#L11-L12)
        | [winget](https://github.com/microsoft/winget-pkgs/blob/d7aa02cfe97624c51a005b3c7ac42f05f205aff5/manifests/d/Daum/PotPlayer/240618/Daum.PotPlayer.installer.yaml#L84-L85)  

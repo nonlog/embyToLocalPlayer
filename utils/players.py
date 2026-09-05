@@ -20,6 +20,15 @@ pipe_port_stack = list(reversed(range(25)))
 mpv_play_speed = {'media_title': 'speed'}
 
 
+def _notify_progress(callback, *, key, position, duration=None, paused=None):
+    if not callback or position is None:
+        return
+    try:
+        callback(key=key, position=position, duration=duration, paused=paused)
+    except Exception as exc:
+        logger.warn(f'playback observer failed: {type(exc).__name__}')
+
+
 # *_player_start 返回获取播放时间等操作所需参数字典
 # stop_sec_* 接收字典参数
 
@@ -270,7 +279,7 @@ def playlist_add_mpv(mpv: MPV, data, eps_data=None, limit=10):
     return playlist_data
 
 
-def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
+def stop_sec_mpv(mpv: MPV, stop_sec_only=True, progress_callback=None, **_):
     if not mpv:
         logger.error('mpv not found, skip stop_sec_mpv')
         return None if stop_sec_only else {}
@@ -299,6 +308,8 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
             media_title = mpv.command('get_property', 'media-title')
             tmp_sec = mpv.command('get_property', 'time-pos')
             speed = mpv.command('get_property', 'speed')
+            paused = mpv.command('get_property', 'pause')
+            observed_duration = mpv.command('get_property', 'duration')
 
             chapters_raw = mpv.command('get_property', 'chapter-list') if dura_start else None
             chapter_index = mpv.command('get_property', 'chapter') if dura_start else None
@@ -311,6 +322,8 @@ def stop_sec_mpv(mpv: MPV, stop_sec_only=True, **_):
                 if not stop_sec_only:
                     name_stop_sec_dict[media_title] = tmp_sec
                     prefetch_data['stop_sec_dict'][media_title] = tmp_sec
+                _notify_progress(progress_callback, key=media_title, position=tmp_sec,
+                                 duration=observed_duration, paused=paused)
 
                 if not chapters_dict and dura_start and chapters_raw:
                     dura_start, dura_end, jitter_sec = int(dura_start), int(dura_end), int(jitter_sec)
@@ -465,7 +478,7 @@ def playlist_add_vlc(vlc: VLCHttpApi, data, eps_data=None, limit=5, **_):
     return playlist_data
 
 
-def stop_sec_vlc(vlc: VLCHttpApi, stop_sec_only=True, **_):
+def stop_sec_vlc(vlc: VLCHttpApi, stop_sec_only=True, progress_callback=None, **_):
     if not vlc:
         logger.error('vlc not found skip stop_sec_vlc')
         return None if stop_sec_only else {}
@@ -480,6 +493,7 @@ def stop_sec_vlc(vlc: VLCHttpApi, stop_sec_only=True, **_):
             tmp_sec = stat['time']
             total_sec = stat['length']
             file_name = stat['information']['category']['meta']['filename']
+            state = str(stat.get('state', '')).lower()
             if tmp_sec:
                 stop_sec = tmp_sec
                 if not stop_sec_only:
@@ -487,6 +501,8 @@ def stop_sec_vlc(vlc: VLCHttpApi, stop_sec_only=True, **_):
                     name_stop_sec_dict[key] = stop_sec
                     name_total_sec_dict[key] = total_sec
                     prefetch_data['stop_sec_dict'][file_name] = tmp_sec
+                _notify_progress(progress_callback, key=os.path.basename(file_name), position=tmp_sec,
+                                 duration=total_sec, paused=(state == 'paused'))
                 time.sleep(0.3)
         except Exception:
             logger.info(f'vlc stop, {stop_sec=}')
@@ -602,7 +618,7 @@ def playlist_add_mpc(mpc_path, data, eps_data=None, limit=4, **_):
     return playlist_data
 
 
-def stop_sec_mpc(mpc: MPCHttpApi, stop_sec_only=True, **_):
+def stop_sec_mpc(mpc: MPCHttpApi, stop_sec_only=True, progress_callback=None, **_):
     if not mpc:
         logger.error('mpc not found skip stop_sec_mpc')
         return None if stop_sec_only else {}
@@ -626,6 +642,8 @@ def stop_sec_mpc(mpc: MPCHttpApi, stop_sec_only=True, **_):
             path_stack.append(media_path)
             total = total_stack.pop(0)
             total_stack.append(total_sec)
+            _notify_progress(progress_callback, key=os.path.basename(media_path), position=stop_sec,
+                             duration=total_sec, paused=str(state).lower() in ('1', 'paused'))
             if not stop_sec_only and path:
                 # emby 播放多版本时，PlaybackInfo 返回的数据里，不同版本 DirectStreamUrl 的 itemid 都一样（理应不同）。
                 # 所以用 basename 去除 itemid 来保证数据准确性。
@@ -641,7 +659,21 @@ def stop_sec_mpc(mpc: MPCHttpApi, stop_sec_only=True, **_):
         time.sleep(0.5)
 
 
+def _pot_controlled_instance_enabled():
+    return configs.raw.getboolean('potplayer', 'controlled_instance', fallback=True)
+
+
+def _pot_add_instance_arg(cmd, mode):
+    if not _pot_controlled_instance_enabled():
+        return cmd
+    options = {str(arg).lower() for arg in cmd[2:]}
+    if '/new' not in options and '/current' not in options:
+        cmd.append(f'/{mode}')
+    return cmd
+
+
 def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True, **_):
+    _pot_add_instance_arg(cmd, 'new')
     if sub_file:
         if 'Plex-Token' in sub_file or '.sup' in sub_file:
             sub_name = 'pot sub.srt'
@@ -659,12 +691,26 @@ def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None,
         cmd += [f'config={pot_conf.strip()}']
 
     logger.info(cmd)
-    player = subprocess.Popen(cmd)
+    try:
+        player = subprocess.Popen(cmd)
+    except OSError as exc:
+        if getattr(exc, 'winerror', None) == 740:
+            raise PermissionError(
+                'PotPlayer executable requires elevation. Point [exe] pot or '
+                '[potplayer] direct_exe at PotPlayerMini64.exe, not an elevated portable launcher.') from None
+        raise
     activate_window_by_pid(player.pid, sleep=0)
     if not get_stop_sec:
         return
-
     return dict(pid=player.pid, player_path=cmd[0])
+
+
+def _pot_playlist_aliases(ep):
+    aliases = {ep.get('media_title'), ep.get('basename'), ep.get('media_basename')}
+    media_path = ep.get('media_path') or ''
+    if media_path:
+        aliases.add(os.path.basename(urllib.parse.urlparse(media_path).path))
+    return {urllib.parse.unquote(str(alias)) for alias in aliases if alias}
 
 
 def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
@@ -691,64 +737,95 @@ def playlist_add_pot(pid, player_path, data, eps_data=None, limit=5, **_):
     for ep in episodes:
         basename = ep['basename']
         media_title = ep['media_title']
-        playlist_data[media_title] = ep
-        playlist_data[basename] = ep
+        for alias in _pot_playlist_aliases(ep):
+            playlist_data[alias] = ep
         if basename == data['basename']:
             append = True
             continue
         if not append or (mount_disk_mode and not mix_s0) or limit <= 0 or is_http_sub:
             continue
         limit -= 1
-        # f'/sub={ep["sub_file"]}' pot 下一集会丢失字幕
-        # /add /title 不能复用，会丢失 /title，选项要放后面，否则会有奇怪的问题。
-        pot_cmds.append([player_path, ep['media_path'], '/add', f'/title={media_title}'])
+        cmd = [player_path, ep['media_path']]
+        _pot_add_instance_arg(cmd, 'current')
+        cmd += ['/add', f'/title={media_title}']
+        pot_cmds.append(cmd)
     if pot_cmds:
         def add_thread():
             sleep_sec = 1 if mount_disk_mode else 5
             for cmd in pot_cmds:
                 if not process_is_running_by_pid_window_exist(pid):
                     break
-                subprocess.run(cmd)
+                try:
+                    subprocess.run(cmd, check=False)
+                except OSError as exc:
+                    if getattr(exc, 'winerror', None) == 740:
+                        logger.error('pot playlist add blocked by elevation mismatch; use direct PotPlayer executable')
+                        break
+                    raise
                 time.sleep(sleep_sec)
 
         threading.Thread(target=add_thread, daemon=True).start()
     return playlist_data
 
 
-def stop_sec_pot(pid, stop_sec_only=True, check_only=False, **_):
+def stop_sec_pot(pid, stop_sec_only=True, check_only=False, progress_callback=None, **_):
     if not pid:
         logger.error('pot pid not found skip stop_sec_pot')
         return None if stop_sec_only else {}
     import ctypes
-    from utils.windows_tool import user32, EnumWindowsProc, process_is_running_by_pid_window_exist
+    from utils.windows_tool import (user32, EnumWindowsProc, process_is_running_by_pid_window_exist,
+                                    send_message_timeout)
+
+    pause_detect = max(0.0, configs.raw.getfloat('potplayer', 'pause_detect_seconds', fallback=3.0))
+    last_moving_sec = None
+    last_change_at = time.monotonic()
 
     def potplayer_time_title_updater(_pid):
+        nonlocal last_moving_sec, last_change_at
+
         def send_message(hwnd):
-            nonlocal stop_sec, name_stop_sec_dict, name_total_sec_dict
+            nonlocal stop_sec, name_stop_sec_dict, name_total_sec_dict, last_moving_sec, last_change_at
             target_pid = ctypes.c_ulong()
             user32.GetWindowThreadProcessId(hwnd, ctypes.byref(target_pid))
-            if _pid == target_pid.value:
-                msg_cur_time = user32.SendMessageW(hwnd, 0x400, 0x5004, 1)
-                if msg_cur_time:
-                    if check_only:
-                        stop_sec = 'check_only'
-                        return
-                    stop_sec = msg_cur_time // 1000
-
-                    length = user32.GetWindowTextLengthW(hwnd)
-                    buff = ctypes.create_unicode_buffer(length + 1)
-                    user32.GetWindowTextW(hwnd, buff, length + 1)
-                    title = buff.value.replace(' - PotPlayer', '')
-                    name_stop_sec_dict[title] = stop_sec
-                    prefetch_data['stop_sec_dict'][title] = stop_sec
-
-                    if not name_total_sec_dict.get(title):
-                        msg_total_time = user32.SendMessageW(hwnd, 0x400, 0x5002, 1)
-                        total_sec = msg_total_time // 1000
-                        if total_sec != stop_sec:
-                            name_total_sec_dict[title] = total_sec
-                            if '.strm' in title:
-                                logger.info(f'pot: get strm file {total_sec=}')
+            if _pid != target_pid.value or not user32.IsWindowVisible(hwnd):
+                return
+            length = user32.GetWindowTextLengthW(hwnd)
+            if length <= 0:
+                return
+            buff = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buff, length + 1)
+            raw_title = buff.value
+            if 'PotPlayer' not in raw_title:
+                return
+            msg_cur_time = send_message_timeout(hwnd, 0x400, 0x5004, 1)
+            if not msg_cur_time:
+                return
+            if check_only:
+                stop_sec = 'check_only'
+                return
+            current_sec = msg_cur_time // 1000
+            if current_sec > 10 * 60 * 60:
+                return
+            suffix = ' - PotPlayer'
+            title = raw_title[:-len(suffix)] if raw_title.endswith(suffix) else raw_title
+            msg_total_time = send_message_timeout(hwnd, 0x400, 0x5002, 1)
+            total_sec = msg_total_time // 1000 if msg_total_time else None
+            if total_sec and (total_sec > 24 * 60 * 60 or current_sec > total_sec + 60):
+                return
+            stop_sec = current_sec
+            name_stop_sec_dict[title] = stop_sec
+            prefetch_data['stop_sec_dict'][title] = stop_sec
+            if total_sec and total_sec != stop_sec:
+                name_total_sec_dict[title] = total_sec
+            now = time.monotonic()
+            if last_moving_sec != current_sec:
+                last_moving_sec = current_sec
+                last_change_at = now
+                paused = False
+            else:
+                paused = bool(pause_detect and now - last_change_at >= pause_detect)
+            _notify_progress(progress_callback, key=title, position=current_sec,
+                             duration=total_sec, paused=paused)
 
         def for_each_window(hwnd, _):
             send_message(hwnd)
@@ -773,7 +850,6 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, **_):
         return False
     logger.info(f'pot stop, {stop_sec=}')
     return stop_sec if stop_sec_only else (name_stop_sec_dict, name_total_sec_dict)
-
 
 def dandan_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True,
                         mount_disk_mode=None, **_):
@@ -811,7 +887,7 @@ def playlist_add_dandan(data, eps_data=None, **_):
     return playlist_data
 
 
-def stop_sec_dandan(*_, start_sec=None, is_http=None, stop_sec_only=True):
+def stop_sec_dandan(*_, start_sec=None, is_http=None, stop_sec_only=True, progress_callback=None, **__):
     config = configs.raw
     dandan = config['dandan']
     api_key = dandan['api_key']
