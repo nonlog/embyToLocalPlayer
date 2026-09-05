@@ -58,16 +58,18 @@ Windows-log can reach `https://floppy.414222.xyz/api/v1/info/`; it returned HTTP
 The production Scoop package has been moved from upstream to this fork and upgraded in place:
 
 - Scoop bucket: `www` (`nonlog/scoop-www`)
-- Installed version: `2026.09.05.2`
-- Release: `nonlog/embyToLocalPlayer` tag `2026.09.05.2`
-- Runtime commit for the patch release: `22746b57aaa256a24c2640ea6ab6cf1087b30cc0`
+- Installed version: `2026.09.05.3`
+- Release: `nonlog/embyToLocalPlayer` tag `2026.09.05.3`
+- Runtime commit for the patch release: `21aaba7ec13bbca6bebedc116fa503440a1bd2cf`
 - Persistent config: `D:\Programs\Scoop\persist\embyToLocalPlayer\embyToLocalPlayer_config.ini`
 - The persistent INI SHA-256 stayed identical across both Scoop upgrades, so existing settings were preserved.
 - New shim: `embyToLocalPlayer_config` starts the standalone Tkinter configuration GUI.
-- Configured player remains `pot` at `D:\Tools\Player\PotPlayer\PotPlayerMini64.exe` (240618).
+- Configured player is `pot` at `D:\Programs\Scoop\apps\potplayer\current\PotPlayerMini64.exe`; the live 2026-09-05 log detects PotPlayer `260819`. Older 240618 and 251126 trees remain the compatibility-validation references.
 - Background server smoke test on the installed package returned HTTP 200 from `127.0.0.1:58000` and the listener was cleanly removed after the test.
 - Installed GUI smoke test loaded the real legacy INI without changing runtime defaults for missing new options. A dedicated regression test now covers those defaults.
-- Floppy `v26.8.27` public API is reachable from Windows-log. Floppy writes remain disabled until an API/integration token is configured; no credential is stored in Git or guessed during deployment.
+- Floppy `v26.8.27` is reachable from Windows-log. In `2026.09.05.3`, the user's configured Floppy token passed a real read-only authentication test; the bridge loads as enabled with `timeout=5`, `progress_interval=30`, and completion threshold `80%`. No credential is stored in Git.
+- `2026.09.05.3` also fixes blank Floppy numeric settings so empty or invalid values fall back safely instead of crashing playback, and avoids constructing a Floppy client at all when Floppy is disabled.
+- The config GUI previously used `os.replace()` and could break Scoop's hardlink between the runtime INI and `persist`. The editor now detects symlinks/hardlinks and writes through the linked file. Windows-log's split config was reconciled, the `[floppy]` section was repaired, and a real no-op GUI-style save kept the hardlink intact. After cleanup, runtime and persist are the same hardlink with `nlink=2` and matching SHA-256.
 - Trakt startup probing was removed in `2026.09.05.2`: Trakt is now lazy and is only contacted when a completed item matches `[trakt] enable_host`. Windows-log's persisted `trakt.enable_host` was cleared, while existing Trakt credentials/token were preserved. A real installed-package test with a non-empty test host and blank temporary credentials produced zero Trakt startup accesses and still returned HTTP 200 on port 58000; the original INI was restored byte-for-byte afterward.
 
 The development checkout used for validation is separate at `D:\Workspace\embyToLocalPlayer-floppy`; its `.tmp` runtime fixtures are not part of Git.
