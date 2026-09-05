@@ -844,7 +844,8 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, progress_callback=No
     seen_active_window = False
     missing_active_polls = 0
     while True:
-        if not process_is_running_by_pid_window_exist(pid, timeout=0.5):
+        window_timeout = 0.5 if seen_active_window else 5
+        if not process_is_running_by_pid_window_exist(pid, timeout=window_timeout):
             logger.all('pot not running')
             break
         active_window_found = potplayer_time_title_updater(pid)
