@@ -349,7 +349,7 @@ https://github.com/kjtsune/embyToLocalPlayer#faq
     1. 起播显式使用 `/new`，避免 Pot 单实例转发后 ETLP 继续跟踪已经退出的临时 PID；播放列表追加使用 `/current`。
     2. 播放列表同时记录美化标题、原始文件名、`media_basename` 和 HTTP URL basename（包括常见 `stream.mkv`）。
     3. Win32 进度 IPC 改为带超时调用，并过滤非播放窗口与异常时长，避免错误窗口导致 `None`/异常进度。
-    4. 高版本检测会扫描本地化 `History/*.txt`，不再只依赖 `English.txt`。
+    4. 高版本检测会扫描本地化 `History/*.txt`，不再只依赖 `English.txt`；240618 与新版本使用不同标题转义策略，避免把新版本规则误套到旧版。
     5. 便携启动器若要求提权，配置 `[potplayer] direct_exe` 指向内部 `PotPlayerMini64.exe`；不建议让 ETLP 或 PotPlayer 长期以管理员身份运行。
 
   仍有问题时再尝试初始化 PotPlayer 设置、读盘模式，或用 240618/最新版交叉验证。240618 下载链接：

@@ -826,7 +826,7 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, progress_callback=No
                 last_change_at = now
                 paused = False
             else:
-                paused = bool(pause_detect and now - last_change_at >= pause_detect)
+                paused = bool(current_sec > 0 and pause_detect and now - last_change_at >= pause_detect)
             _notify_progress(progress_callback, key=title, position=current_sec,
                              duration=total_sec, paused=paused)
 

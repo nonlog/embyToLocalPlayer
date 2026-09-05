@@ -29,10 +29,10 @@
 - [x] Localized modern-version detection.
 - [x] Bounded/sane Win32 progress IPC.
 - [x] Direct-executable path for portable/elevation wrappers.
-- [ ] Complete Windows-log old/current local-file + HTTP runtime validation.
+- [x] Complete Windows-log old/current local-file + HTTP runtime validation.
 
 ## S4 - Merge/release
 
-- [ ] Green GitHub Actions on feature branch.
-- [ ] Update handoff with Windows validation findings.
+- [x] Green GitHub Actions on feature branch (implementation commits validated; final commit rechecked before promotion).
+- [x] Update handoff with Windows validation findings.
 - [ ] Commit/push with Codex identity and open/merge PR according to project policy.
