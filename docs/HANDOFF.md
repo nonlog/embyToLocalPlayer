@@ -25,6 +25,7 @@
 - Portable/elevated wrapper mitigation through `[potplayer] direct_exe`; WinError 740 is reported as a direct-executable configuration problem rather than recommending permanent administrator mode.
 - Progress observation hooks added to mpv, VLC, MPC and PotPlayer without changing their existing return contracts.
 - Unit tests and GitHub CI test job added.
+- VLC/MPC regression tests verify that optional Floppy progress callbacks preserve the existing playlist stop-time return contracts.
 
 ## Windows-log validation (2026-09-05)
 
