@@ -1,9 +1,11 @@
 import configparser
+import os
 import tempfile
 import unittest
 from pathlib import Path
 
-from utils.config_editor import get_boolean_with_runtime_default, update_ini_preserving_comments
+from utils.config_editor import (get_boolean_with_runtime_default, get_text_with_runtime_default,
+                                 update_ini_preserving_comments)
 from utils.config_state import request_snapshot
 from utils.configs import Configs, configs
 from utils.request_overrides import apply_request_overrides
@@ -23,6 +25,15 @@ class ConfigAndPotTests(unittest.TestCase):
         self.assertTrue(get_boolean_with_runtime_default(conf, 'dev', 'pretty_title'))
         self.assertTrue(get_boolean_with_runtime_default(conf, 'dev', 'one_instance_mode'))
 
+    def test_gui_text_defaults_match_runtime_defaults(self):
+        conf = configparser.ConfigParser()
+        conf.read_dict({'floppy': {'timeout': '', 'progress_interval': '', 'completed_percent': ''},
+                        'potplayer': {'pause_detect_seconds': ''}})
+        self.assertEqual(get_text_with_runtime_default(conf, 'floppy', 'timeout'), '5')
+        self.assertEqual(get_text_with_runtime_default(conf, 'floppy', 'progress_interval'), '30')
+        self.assertEqual(get_text_with_runtime_default(conf, 'floppy', 'completed_percent'), '90')
+        self.assertEqual(get_text_with_runtime_default(conf, 'potplayer', 'pause_detect_seconds'), '3')
+
     def test_line_preserving_editor_keeps_comments(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / 'x.ini'
@@ -32,6 +43,18 @@ class ConfigAndPotTests(unittest.TestCase):
             self.assertIn('# keep me', text)
             self.assertIn('player = mpv', text)
             self.assertIn('[floppy]', text)
+
+    def test_line_preserving_editor_keeps_persist_hardlink(self):
+        with tempfile.TemporaryDirectory() as td:
+            persist = Path(td) / 'persist.ini'
+            runtime = Path(td) / 'runtime.ini'
+            persist.write_text('[emby]\nplayer = pot\n', encoding='utf-8')
+            os.link(persist, runtime)
+            inode = os.stat(runtime).st_ino
+            update_ini_preserving_comments(runtime, {('emby', 'player'): 'mpv'})
+            self.assertEqual(os.stat(runtime).st_ino, inode)
+            self.assertGreaterEqual(os.stat(runtime).st_nlink, 2)
+            self.assertIn('player = mpv', persist.read_text(encoding='utf-8-sig'))
 
     def test_request_snapshot_redacts_sensitive_url_query(self):
         snap = request_snapshot({'stream_url': 'https://x/video.mkv?api_key=abc&ok=1',

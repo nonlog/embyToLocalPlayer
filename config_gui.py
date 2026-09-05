@@ -12,7 +12,8 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from utils.config_editor import get_boolean_with_runtime_default, update_ini_preserving_comments
+from utils.config_editor import (get_boolean_with_runtime_default, get_text_with_runtime_default,
+                                 update_ini_preserving_comments)
 
 
 BOOL_FIELDS = {
@@ -157,7 +158,7 @@ class ConfigApp:
             if isinstance(var, tk.BooleanVar):
                 var.set(get_boolean_with_runtime_default(self.config, section, option))
             else:
-                var.set(self.config.get(section, option, fallback=''))
+                var.set(get_text_with_runtime_default(self.config, section, option))
         self.raw_text.delete('1.0', 'end')
         self.raw_text.insert('1.0', self.path.read_text(encoding='utf-8-sig'))
         self.load_request()

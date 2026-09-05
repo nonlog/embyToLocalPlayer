@@ -14,6 +14,32 @@ logger = MyLogger()
 SUPPORTED_IDS = ('tmdb', 'imdb', 'tvdb')
 
 
+def _config_text(raw, option, default=''):
+    value = raw.get('floppy', option, fallback=None)
+    if value is None or not str(value).strip():
+        return str(default)
+    return str(value).strip()
+
+
+def _config_float(raw, option, default):
+    value = _config_text(raw, option, default)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        logger.warn(f'floppy: invalid {option}={value!r}; using {default}')
+        return float(default)
+
+
+def _config_bool(raw, option, default):
+    value = _config_text(raw, option, 'yes' if default else 'no').lower()
+    if value in ('1', 'yes', 'true', 'on'):
+        return True
+    if value in ('0', 'no', 'false', 'off'):
+        return False
+    logger.warn(f'floppy: invalid {option}={value!r}; using {default}')
+    return bool(default)
+
+
 def _provider_ids(data):
     raw = data.get('ProviderIds') or {}
     return {str(k).lower(): str(v) for k, v in raw.items()
@@ -41,14 +67,12 @@ class FloppyClient:
                          raw.get('floppy', 'base_url', fallback='')).strip().rstrip('/')
         self.token = (token if token is not None else
                       raw.get('floppy', 'token', fallback='')).strip()
-        self.timeout = float(timeout if timeout is not None else
-                             raw.getfloat('floppy', 'timeout', fallback=5))
-        self.verify_ssl = bool(verify_ssl if verify_ssl is not None else
-                               raw.getboolean('floppy', 'verify_ssl', fallback=True))
+        self.timeout = float(timeout) if timeout is not None else _config_float(raw, 'timeout', 5)
+        self.verify_ssl = bool(verify_ssl) if verify_ssl is not None else _config_bool(raw, 'verify_ssl', True)
         self.opener = opener or urllib.request.urlopen
 
     def enabled_for(self, data):
-        if not self.config.getboolean('floppy', 'enable', fallback=False):
+        if not _config_bool(self.config, 'enable', False):
             return False
         if not self.base_url or not self.token:
             return False
@@ -90,17 +114,19 @@ class FloppyClient:
 class FloppyPlaybackBridge:
     def __init__(self, data, *, client=None, dispatch=None, clock=None, series_fetcher=None):
         self.data = data
-        self.client = client or FloppyClient()
-        self.enabled = self.client.enabled_for(data)
+        raw = getattr(client, 'config', configs.raw)
+        self.client = client
+        if self.client is None and _config_bool(raw, 'enable', False):
+            self.client = FloppyClient(config=raw)
+        self.enabled = bool(self.client and self.client.enabled_for(data))
         self._queue = None
         self._queue_thread = None
         self._external_dispatch = dispatch
         self.dispatch = dispatch or self._queue_dispatch
         self.clock = clock or time.monotonic
         self.series_fetcher = series_fetcher or self._fetch_series_info
-        raw = getattr(self.client, 'config', configs.raw)
-        self.progress_interval = max(5.0, float(raw.getfloat('floppy', 'progress_interval', fallback=30)))
-        percent = float(raw.getfloat('floppy', 'completed_percent', fallback=90))
+        self.progress_interval = max(5.0, _config_float(raw, 'progress_interval', 30))
+        percent = _config_float(raw, 'completed_percent', 90)
         self.completed_threshold = min(1.0, max(0.0, percent / 100.0))
         self.playlist_data = {}
         self._active_key = None

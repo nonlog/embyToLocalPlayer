@@ -17,10 +17,25 @@ GUI_BOOL_DEFAULTS = {
     ('dev', 'one_instance_mode'): True,
 }
 
+GUI_TEXT_DEFAULTS = {
+    ('potplayer', 'pause_detect_seconds'): '3',
+    ('floppy', 'progress_interval'): '30',
+    ('floppy', 'completed_percent'): '90',
+    ('floppy', 'timeout'): '5',
+}
+
 
 def get_boolean_with_runtime_default(config, section, option):
     default = GUI_BOOL_DEFAULTS.get((section, option), False)
     return config.getboolean(section, option, fallback=default)
+
+
+def get_text_with_runtime_default(config, section, option):
+    value = config.get(section, option, fallback=None)
+    default = GUI_TEXT_DEFAULTS.get((section, option), '')
+    if value is None or (not str(value).strip() and (section, option) in GUI_TEXT_DEFAULTS):
+        return default
+    return str(value)
 
 
 def update_ini_preserving_comments(path, changes):
@@ -66,6 +81,20 @@ def update_ini_preserving_comments(path, changes):
         output.extend(f'{option} = {value}\n' for option, value in options)
 
     directory = os.path.dirname(os.path.abspath(path))
+    preserve_link = os.path.islink(path)
+    try:
+        preserve_link = preserve_link or os.stat(path).st_nlink > 1
+    except OSError:
+        pass
+    if preserve_link:
+        # Scoop persists files using filesystem links. Replacing the path would
+        # silently break that link and split the runtime config from persist.
+        with open(path, 'w', encoding='utf-8-sig', newline='') as fh:
+            fh.writelines(output)
+            fh.flush()
+            os.fsync(fh.fileno())
+        return
+
     fd, tmp = tempfile.mkstemp(prefix='.etlp-config-', suffix='.ini', dir=directory)
     try:
         with os.fdopen(fd, 'w', encoding='utf-8-sig', newline='') as fh:

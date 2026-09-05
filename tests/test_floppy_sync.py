@@ -1,7 +1,8 @@
 import configparser
 import unittest
 
-from utils.floppy_sync import FloppyPlaybackBridge
+from utils.configs import configs
+from utils.floppy_sync import FloppyClient, FloppyPlaybackBridge
 
 
 class FakeClient:
@@ -65,6 +66,29 @@ class FloppyPlaybackBridgeTests(unittest.TestCase):
         client.scrobble = lambda *args, **kwargs: (_ for _ in ()).throw(OSError('offline'))
         bridge = FloppyPlaybackBridge(self.movie(), client=client, dispatch=lambda fn: fn())
         bridge.start(0)
+
+    def test_disabled_floppy_does_not_create_client_and_blank_numbers_use_defaults(self):
+        original = configs.raw
+        try:
+            cfg = configparser.ConfigParser()
+            cfg.read_dict({'floppy': {'enable': 'no', 'timeout': '', 'verify_ssl': '',
+                                      'progress_interval': '', 'completed_percent': ''}})
+            configs.raw = cfg
+            bridge = FloppyPlaybackBridge(self.movie(), dispatch=lambda fn: fn())
+            self.assertFalse(bridge.enabled)
+            self.assertIsNone(bridge.client)
+            self.assertEqual(bridge.progress_interval, 30.0)
+            self.assertEqual(bridge.completed_threshold, 0.9)
+        finally:
+            configs.raw = original
+
+    def test_blank_floppy_client_values_use_runtime_defaults(self):
+        cfg = configparser.ConfigParser()
+        cfg.read_dict({'floppy': {'enable': 'yes', 'base_url': 'https://floppy.test',
+                                  'token': 'secret', 'timeout': '', 'verify_ssl': ''}})
+        client = FloppyClient(config=cfg)
+        self.assertEqual(client.timeout, 5.0)
+        self.assertTrue(client.verify_ssl)
 
 
 if __name__ == '__main__':
