@@ -58,9 +58,9 @@ Windows-log can reach `https://floppy.414222.xyz/api/v1/info/`; it returned HTTP
 The production Scoop package has been moved from upstream to this fork and upgraded in place:
 
 - Scoop bucket: `www` (`nonlog/scoop-www`)
-- Installed version: `2026.09.05.1`
-- Release: `nonlog/embyToLocalPlayer` tag `2026.09.05.1`
-- Runtime commit for the patch release: `c18694805e570c3c287ba8d6426e965a16d648a9`
+- Installed version: `2026.09.05.2`
+- Release: `nonlog/embyToLocalPlayer` tag `2026.09.05.2`
+- Runtime commit for the patch release: `22746b57aaa256a24c2640ea6ab6cf1087b30cc0`
 - Persistent config: `D:\Programs\Scoop\persist\embyToLocalPlayer\embyToLocalPlayer_config.ini`
 - The persistent INI SHA-256 stayed identical across both Scoop upgrades, so existing settings were preserved.
 - New shim: `embyToLocalPlayer_config` starts the standalone Tkinter configuration GUI.
@@ -68,5 +68,6 @@ The production Scoop package has been moved from upstream to this fork and upgra
 - Background server smoke test on the installed package returned HTTP 200 from `127.0.0.1:58000` and the listener was cleanly removed after the test.
 - Installed GUI smoke test loaded the real legacy INI without changing runtime defaults for missing new options. A dedicated regression test now covers those defaults.
 - Floppy `v26.8.27` public API is reachable from Windows-log. Floppy writes remain disabled until an API/integration token is configured; no credential is stored in Git or guessed during deployment.
+- Trakt startup probing was removed in `2026.09.05.2`: Trakt is now lazy and is only contacted when a completed item matches `[trakt] enable_host`. Windows-log's persisted `trakt.enable_host` was cleared, while existing Trakt credentials/token were preserved. A real installed-package test with a non-empty test host and blank temporary credentials produced zero Trakt startup accesses and still returned HTTP 200 on port 58000; the original INI was restored byte-for-byte afterward.
 
 The development checkout used for validation is separate at `D:\Workspace\embyToLocalPlayer-floppy`; its `.tmp` runtime fixtures are not part of Git.
