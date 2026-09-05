@@ -3,7 +3,7 @@ import re
 import tempfile
 
 SECTION_RE = re.compile(r'^\s*\[([^]]+)\]\s*$')
-OPTION_RE = re.compile(r'^(\s*)([^#;][^=]*?)(\s*=\s*)(.*?)(\r?\n)?$')
+OPTION_RE = re.compile(r'^([ \t]*)([^#;][^=]*?)([ \t]*=[ \t]*)(.*?)(\r?\n)?$')
 
 GUI_BOOL_DEFAULTS = {
     ('emby', 'update_progress'): True,

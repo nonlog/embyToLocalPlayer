@@ -57,7 +57,6 @@ class BaseManager(BaseInit):
             self.player_kwargs = start_player_func_dict[self.player_name](**kwargs)
         except FileNotFoundError:
             raise FileNotFoundError(f'player not exists, check config ini file, {kwargs["cmd"][0]}') from None
-        self.floppy.start(position=kwargs['start_sec'])
 
     def playlist_add(self, eps_data=None):
         limit = configs.raw.getint('playlist', 'item_limit', fallback=-1)
@@ -77,6 +76,8 @@ class BaseManager(BaseInit):
         self.playlist_data = playlist_func_dict[self.player_name](data=self.data, eps_data=eps_data,
                                                                   **self.player_kwargs)
         self.floppy.set_playlist_data(self.playlist_data)
+        if self.playlist_data:
+            self.floppy.start(position=self.data.get('start_sec') or 0)
 
     def http_sub_auto_next_ep_time_loop(self, key_field):
         playlist_data = tuple(self.playlist_data.items())

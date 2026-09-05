@@ -663,6 +663,17 @@ def _pot_controlled_instance_enabled():
     return configs.raw.getboolean('potplayer', 'controlled_instance', fallback=True)
 
 
+def _pot_pause_detect_seconds():
+    raw = configs.raw.get('potplayer', 'pause_detect_seconds', fallback='3').strip()
+    if not raw:
+        return 3.0
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        logger.warn(f'pot: invalid pause_detect_seconds={raw!r}; using 3')
+        return 3.0
+
+
 def _pot_add_instance_arg(cmd, mode):
     if not _pot_controlled_instance_enabled():
         return cmd
@@ -776,7 +787,7 @@ def stop_sec_pot(pid, stop_sec_only=True, check_only=False, progress_callback=No
     from utils.windows_tool import (user32, EnumWindowsProc, process_is_running_by_pid_window_exist,
                                     send_message_timeout)
 
-    pause_detect = max(0.0, configs.raw.getfloat('potplayer', 'pause_detect_seconds', fallback=3.0))
+    pause_detect = _pot_pause_detect_seconds()
     last_moving_sec = None
     last_change_at = time.monotonic()
 

@@ -44,6 +44,17 @@ class ConfigAndPotTests(unittest.TestCase):
             self.assertIn('player = mpv', text)
             self.assertIn('[floppy]', text)
 
+    def test_line_preserving_editor_replaces_blank_value_on_same_line(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / 'x.ini'
+            path.write_text('[potplayer]\npause_detect_seconds = \n', encoding='utf-8')
+            update_ini_preserving_comments(path, {('potplayer', 'pause_detect_seconds'): '3'})
+            text = path.read_text(encoding='utf-8-sig')
+            self.assertIn('pause_detect_seconds = 3\n', text)
+            conf = configparser.ConfigParser()
+            conf.read_string(text)
+            self.assertEqual(conf.getfloat('potplayer', 'pause_detect_seconds'), 3.0)
+
     def test_line_preserving_editor_keeps_persist_hardlink(self):
         with tempfile.TemporaryDirectory() as td:
             persist = Path(td) / 'persist.ini'
@@ -93,6 +104,16 @@ class ConfigAndPotTests(unittest.TestCase):
             version_file.write_text('[251126]\nchanges\n', encoding='utf-8')
             new_title = obj.media_title_translate("A 'Quoted' \"Title\"", player_path=str(exe), log=False)
             self.assertEqual(new_title, 'A-＇Quoted＇-＂Title＂')
+
+    def test_blank_pot_pause_detect_uses_runtime_default(self):
+        original = configs.raw
+        try:
+            cfg = configparser.ConfigParser()
+            cfg.read_dict({'potplayer': {'pause_detect_seconds': ''}})
+            configs.raw = cfg
+            self.assertEqual(players._pot_pause_detect_seconds(), 3.0)
+        finally:
+            configs.raw = original
 
     def test_pot_instance_arguments_and_stream_alias(self):
         original = configs.raw

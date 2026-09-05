@@ -40,7 +40,7 @@ def tg_notify(msg, silence=False):
     if not chat_id:
         return
     if msg == '_get_chat_id':
-        msg = f'message test success\n`chat_id = {chat_id}`\nneed to set `get_chat_id \= no`'
+        msg = f'message test success\n`chat_id = {chat_id}`\nneed to set `get_chat_id \\= no`'
     if silence_time:
         silence_time = [range(int(start), int(end)) for (start, end) in
                         [time_range.split('-') for time_range in silence_time]]
