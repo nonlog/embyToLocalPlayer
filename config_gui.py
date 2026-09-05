@@ -12,7 +12,6 @@ from tkinter import filedialog, messagebox, ttk
 
 from utils.config_editor import (get_boolean_with_runtime_default, get_text_with_runtime_default,
                                  update_ini_preserving_comments)
-from utils.floppy_sync import FloppyClient
 
 
 BOOL_FIELDS = {
@@ -21,6 +20,18 @@ BOOL_FIELDS = {
     ('floppy', 'verify_ssl'), ('dev', 'use_system_proxy'),
     ('dev', 'skip_certificate_verify'), ('dev', 'pretty_title'),
     ('dev', 'one_instance_mode'),
+}
+
+CHOICE_FIELDS = {
+    ('floppy', 'completed_percent'): ('80', '90', '95'),
+}
+
+FIELD_HINTS = {
+    ('floppy', 'enable_host'): '. = all media-server hosts',
+    ('floppy', 'progress_interval'): '30 s recommended',
+    ('floppy', 'completed_percent'): '80 lenient · 90 recommended · 95 strict',
+    ('floppy', 'timeout'): '5 s recommended',
+    ('floppy', 'verify_ssl'): 'Keep enabled for HTTPS',
 }
 
 TABS = {
@@ -115,6 +126,10 @@ class ConfigApp:
             if key in BOOL_FIELDS:
                 var = tk.BooleanVar()
                 ttk.Checkbutton(frame, variable=var).grid(row=row, column=1, sticky='w', pady=5)
+            elif key in CHOICE_FIELDS:
+                var = tk.StringVar()
+                ttk.Combobox(frame, textvariable=var, values=CHOICE_FIELDS[key], state='readonly').grid(
+                    row=row, column=1, sticky='ew', pady=5)
             else:
                 var = tk.StringVar()
                 show = '*' if key == ('floppy', 'token') else ''
@@ -124,6 +139,9 @@ class ConfigApp:
                     ttk.Button(frame, text='Browse', command=lambda v=var: self._browse(v)).grid(
                         row=row, column=2, padx=(8, 0), pady=5)
             self.vars[key] = var
+            hint = FIELD_HINTS.get(key)
+            if hint:
+                ttk.Label(frame, text=hint).grid(row=row, column=2, sticky='w', padx=(8, 0), pady=5)
         if name == 'Floppy':
             ttk.Button(frame, text='Test Floppy connection', command=self.test_floppy).grid(
                 row=len(fields), column=1, sticky='w', pady=(14, 0))
@@ -206,6 +224,8 @@ class ConfigApp:
         messagebox.showinfo('Saved', 'Raw INI saved.')
 
     def test_floppy(self):
+        from utils.floppy_sync import FloppyClient
+
         base = self.vars[('floppy', 'base_url')].get().strip().rstrip('/')
         token = self.vars[('floppy', 'token')].get().strip()
         if not base or not token:

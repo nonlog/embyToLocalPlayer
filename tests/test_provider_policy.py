@@ -11,7 +11,7 @@ class ProviderPolicyTests(unittest.TestCase):
         self.assertIn('simkl', STARTUP_PROBE_PROVIDERS)
 
     def test_fork_version_matches_patch_release(self):
-        self.assertEqual(show_version_info(), '2026.09.05.4')
+        self.assertEqual(show_version_info(), '2026.09.05.5')
 
 
 if __name__ == '__main__':

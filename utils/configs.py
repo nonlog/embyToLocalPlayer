@@ -25,7 +25,8 @@ def mini_conf():
 
 
 raw_stdout = sys.stdout
-raw_stdout.reconfigure(encoding='utf-8-sig', errors='replace')
+if raw_stdout is not None and hasattr(raw_stdout, 'reconfigure'):
+    raw_stdout.reconfigure(encoding='utf-8-sig', errors='replace')
 
 
 class Stdout:
@@ -45,7 +46,8 @@ class Stdout:
         log = str(*args) + end
         if MyLogger.need_mix:
             log = MyLogger.mix_args_str(log)[0]
-        raw_stdout.write(log)
+        if raw_stdout is not None:
+            raw_stdout.write(log)
         if self.log_file:
             self.log_file.write(log)
             self.log_file.flush()

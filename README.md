@@ -55,7 +55,7 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
 python config_gui.py
 ```
 
-GUI 可编辑播放器/请求覆盖/网络与行为/PotPlayer/Floppy 参数，并可查看最近一次经过脱敏的媒体服务器请求。保存内容仍写回 INI；关闭 GUI 后后台服务照常独立运行。
+GUI 可编辑播放器/请求覆盖/网络与行为/PotPlayer/Floppy 参数，并可查看最近一次经过脱敏的媒体服务器请求。Floppy 页会显示推荐值；`completed_percent` 提供 `80 / 90 / 95` 下拉选项，其中 `90` 为推荐值。保存内容仍写回 INI；关闭 GUI 后后台服务照常独立运行。
 
 > Floppy（可选）
 
