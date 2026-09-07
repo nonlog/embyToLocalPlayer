@@ -16,6 +16,7 @@
 - Standalone `config_gui.py` using Tkinter; CLI/background startup does not import it.
 - Comment-preserving INI writes for common GUI fields, plus a full Advanced INI editor.
 - Persisted safe request overrides and JSON player extra arguments.
+- Host-scoped, opt-in Emby client identity overrides for DeviceId, Device name, Client/App, Version and User-Agent. The effective identity is reused across stream URLs, Emby APIs, playback-progress calls and MediaBrowser authorization; PotPlayer HTTP(S) launches also receive `/user_agent=`.
 - Sanitized `.tmp/last_request.json` for GUI inspection; auth/query secrets are redacted.
 - PotPlayer controlled instance launch (`/new`) and playlist append (`/current`).
 - PotPlayer playlist aliases include media title, original basename, `media_basename`, and HTTP URL basename such as `stream.mkv`.
@@ -49,7 +50,7 @@ Runtime matrix (generated 16-second H.264/AAC MKV):
 
 In all four cases `/current /add` returned 0 and the original `/new` PID remained valid. No Pin-render error, `KeyError: 'stream.mkv'`, `pot stop, stop_sec=None`, or WinError 740 occurred. The first run intentionally exposed a 240618 double-quote title incompatibility; the version-specific fix was then added and the complete matrix passed on the second run.
 
-GUI smoke validation created the window in withdrawn mode and loaded all seven tabs (`Playback`, `Request overrides`, `PotPlayer`, `Network & behavior`, `Floppy`, `Last request`, `Advanced INI`) with 42 editable variables.
+Current GUI smoke validation on Windows-log creates the window in withdrawn mode and loads eight tabs (`Playback`, `Request overrides`, `Emby identity`, `PotPlayer`, `Network & behavior`, `Floppy`, `Last request`, `Advanced INI`) with 49 editable variables.
 
 Windows-log can reach `https://floppy.414222.xyz/api/v1/info/`; it returned HTTP 200 and Floppy `v26.8.27`. No Floppy credential is committed to this repository, so authenticated write testing requires a user-created Floppy integration/API token.
 
@@ -58,15 +59,16 @@ Windows-log can reach `https://floppy.414222.xyz/api/v1/info/`; it returned HTTP
 The production Scoop package has been moved from upstream to this fork and upgraded in place:
 
 - Scoop bucket: `www` (`nonlog/scoop-www`)
-- Installed version: `2026.09.05.6`
-- Release: `nonlog/embyToLocalPlayer` tag `2026.09.05.6`
-- Runtime commit for the patch release: `2a0d47c187f92421714944e5bff44e2588de5f71`
+- Installed version: `2026.09.07`
+- Release: `nonlog/embyToLocalPlayer` tag `2026.09.07`
+- Runtime commit for the release: `af834111bacc53710083ac4cf1ea6c0a20175d3a`
 - Persistent config: `D:\Programs\Scoop\persist\embyToLocalPlayer\embyToLocalPlayer_config.ini`
-- The persistent INI SHA-256 stayed identical across both Scoop upgrades, so existing settings were preserved.
+- The `2026.09.07` Scoop upgrade preserved the persistent INI byte-for-byte. After installation, the missing `[emby_identity]` defaults were appended through the link-preserving config editor with `enable = no`; existing user settings were not replaced.
 - New shim: `embyToLocalPlayer_config` starts the standalone Tkinter configuration GUI.
 - Configured player is `pot` at `D:\Programs\Scoop\apps\potplayer\current\PotPlayerMini64.exe`; the live 2026-09-05 log detects PotPlayer `260819`. Older 240618 and 251126 trees remain the compatibility-validation references.
 - Background server smoke test on the installed package returned HTTP 200 from `127.0.0.1:58000` and the listener was cleanly removed after the test.
 - Installed GUI smoke test loaded the real legacy INI without changing runtime defaults for missing new options. A dedicated regression test now covers those defaults.
+- `2026.09.07` adds the `Emby identity` GUI page. Production defaults remain disabled with blank override values. A Windows-log loopback HTTP capture validated installed-code requests without touching the real Emby server: `EmbyApiThin` GET plus `Sessions/Playing` and `Sessions/Playing/Stopped` all carried the configured test DeviceId, Device name, Client, Version, User-Agent and matching `MediaBrowser` authorization. PotPlayer `260819`'s own `CmdLine64.txt` documents `/user_agent=`, `/referer=` and `/headers=`; the installed ETLP helper produced the configured `/user_agent=` argument for HTTP(S) playback and omits it for local files.
 - Floppy `v26.8.27` is reachable from Windows-log. The user's configured Floppy token passes a real read-only authentication test; the bridge loads as enabled with `timeout=5`, `progress_interval=30`, and completion threshold `80%`. No credential is stored in Git. `2026.09.05.4` fixes the GUI connection-test false 403 by reusing `FloppyClient` (including the runtime `User-Agent`) instead of issuing a separate bare urllib request that Cloudflare rejected.
 - `2026.09.05.6` fixes the PotPlayer/Floppy completion failure found with PotPlayer `260819`: a blank `[potplayer] pause_detect_seconds` now falls back to 3 seconds instead of raising `ValueError`. Floppy `start` is delayed until playlist setup succeeds, so a playlist-init exception can no longer leave a stale Now Playing card without a matching `stop`. The INI editor regex was also fixed so replacing an existing blank value stays on the same line rather than creating an invalid bare-value line; Windows-log's live config was repaired and verified parseable with its Scoop hardlink preserved. Python 3.14 invalid-escape warnings in the old Telegram strings were cleaned up as well. The installed `.6` package was validated with blank pause config (`3.0` fallback), blank-value INI editing, and Floppy event ordering (`[]` after player start, then `playlist -> start` after playlist setup).
 - `2026.09.05.5` restores the `embyToLocalPlayer_config.bat`/`pythonw.exe` launcher after the `.4` GUI test change exposed an old `sys.stdout is None` assumption in `utils/configs.py`. The GUI now lazy-imports the runtime Floppy client, runtime stdout handling is pythonw-safe, and the Floppy page exposes a readonly `80 / 90 / 95` completion-threshold selector with inline guidance (`90` recommended). Windows-log validation launched the actual `.bat`, observed a live `pythonw.exe config_gui.py` process, and successfully ran the Floppy connection test under pythonw.
