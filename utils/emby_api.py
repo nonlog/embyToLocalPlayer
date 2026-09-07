@@ -1,6 +1,9 @@
 import typing
+import urllib.parse
 
 import requests
+
+from utils.emby_identity import identity_headers, identity_params, resolve_emby_identity
 
 
 class EmbyApi:
@@ -14,13 +17,26 @@ class EmbyApi:
             self.req.verify = False
             from requests.packages import urllib3
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        self.req.headers.update({'Accept': 'application/json'})
-        self.req.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-                                               '(KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36',
-                                 'Referer': f'{self.host}/web/index.html',
-                                 'X-Emby-Authorization': f'MediaBrowser Client="EmbyApi",Token="{self.api_key}"',
-                                 'Authorization': f'MediaBrowser Client="EmbyApi",Token="{self.api_key}"',
-                                 })
+        default_user_agent = ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                              '(KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36')
+        self.identity = resolve_emby_identity(
+            netloc=urllib.parse.urlparse(self.host).netloc,
+            client='EmbyApi',
+            user_agent=default_user_agent,
+        )
+        default_headers = {
+            'Accept': 'application/json',
+            'User-Agent': default_user_agent,
+            'Referer': f'{self.host}/web/index.html',
+            'X-Emby-Authorization': f'MediaBrowser Client="EmbyApi",Token="{self.api_key}"',
+            'Authorization': f'MediaBrowser Client="EmbyApi",Token="{self.api_key}"',
+        }
+        if self.identity.get('enabled'):
+            default_headers = identity_headers(self.identity, token=self.api_key, base={
+                'Accept': 'application/json',
+                'Referer': f'{self.host}/web/index.html',
+            })
+        self.req.headers.update(default_headers)
         self._default_fields = ','.join([
             'PremiereDate',
             'ProviderIds',
@@ -39,6 +55,8 @@ class EmbyApi:
     def get(self, path, params=None, get_json=True) -> typing.Union[dict, list, requests.Response]:
         params = params or {'X-Emby-Token': self.api_key}
         params.update({'X-Emby-Token': self.api_key})
+        if self.identity.get('enabled'):
+            params.update(identity_params(self.identity, token=self.api_key))
         url = rf'{self.host}/emby/{path}'
         res = self.req.get(url, params=params, )
         res.raise_for_status()
@@ -47,6 +65,8 @@ class EmbyApi:
     def post(self, path, _json, params=None):
         params = params or {'X-Emby-Token': self.api_key}
         params.update({'X-Emby-Token': self.api_key})
+        if self.identity.get('enabled'):
+            params.update(identity_params(self.identity, token=self.api_key))
         url = rf'{self.host}/emby/{path}'
         return self.req.post(
             url,

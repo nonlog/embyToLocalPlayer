@@ -131,6 +131,16 @@ class ConfigAndPotTests(unittest.TestCase):
                                                       'media_basename': 'stream.mkv',
                                                       'media_path': 'https://x/stream.mkv?token=x'})
             self.assertIn('stream.mkv', aliases)
+
+            ua_cmd = ['PotPlayerMini64.exe', 'https://x/stream.mkv']
+            players._pot_apply_emby_identity_args(
+                ua_cmd, {'emby_identity': {'enabled': True, 'user_agent': 'EmbySpoof/1.0'}})
+            self.assertIn('/user_agent=EmbySpoof/1.0', ua_cmd)
+
+            local_cmd = ['PotPlayerMini64.exe', r'D:\video\movie.mkv']
+            players._pot_apply_emby_identity_args(
+                local_cmd, {'emby_identity': {'enabled': True, 'user_agent': 'EmbySpoof/1.0'}})
+            self.assertNotIn('/user_agent=EmbySpoof/1.0', local_cmd)
         finally:
             configs.raw = original
 

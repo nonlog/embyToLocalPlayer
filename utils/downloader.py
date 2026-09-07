@@ -6,6 +6,7 @@ import typing
 import urllib.parse
 
 from utils.configs import configs, MyLogger
+from utils.emby_identity import identity_params
 from utils.emby_api_thin import EmbyApiThin
 from utils.net_tools import requests_urllib, tg_notify
 from utils.tools import (load_json_file, dump_json_file, scan_cache_dir, safe_deleter, version_prefer_emby,
@@ -512,9 +513,17 @@ def _prefetch_resume_tv(emby_thin: EmbyApiThin, startswith, fetch_type=''):
                         item_done_stat[item_id].append(source_id)
                     # stream_url = f'{host}/videos/{ep["Id"]}/stream{container}' \
                     #              f'?MediaSourceId={source_info["Id"]}&Static=true&api_key={api_key}'
-                    stream_url = f'{host}/emby/videos/{item_id}/stream{container}' \
-                                 f'?DeviceId=embyToLocalPlayer&MediaSourceId={source_id}&Static=true' \
-                                 f'&PlaySessionId={play_session_id}&api_key={emby_thin.api_key}'
+                    stream_params = {
+                        'DeviceId': emby_thin.identity.get('device_id') or 'embyToLocalPlayer',
+                        'MediaSourceId': source_id,
+                        'Static': 'true',
+                        'PlaySessionId': play_session_id,
+                        'api_key': emby_thin.api_key,
+                    }
+                    if emby_thin.identity.get('enabled'):
+                        stream_params.update(identity_params(emby_thin.identity))
+                    stream_url = (f'{host}/emby/videos/{item_id}/stream{container}?'
+                                  f'{urllib.parse.urlencode(stream_params)}')
                     strm_direct = configs.check_str_match(host, 'dev', 'strm_direct_host', log=False)
                     is_http_direct_strm = is_strm and strm_direct and is_http_source
                     if is_http_direct_strm:

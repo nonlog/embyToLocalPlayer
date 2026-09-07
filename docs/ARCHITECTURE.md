@@ -18,7 +18,14 @@ The fork adds two side channels without replacing that path:
 ```text
 parsed request -> sanitized .tmp/last_request.json -> standalone config GUI
 player poller  -> FloppyPlaybackBridge -> Floppy public v1 API
+Emby request   -> Emby identity resolver -> stream query / API headers / progress identity
 ```
+
+## Emby client identity
+
+`utils/emby_identity.py` centralizes optional Emby client/device overrides. With `[emby_identity] enable = no` it is inert. When enabled for a matching host, non-empty `device_id`, `device_name`, `client`, `version`, and `user_agent` values replace the corresponding Emby identity fields while blank values inherit the existing request/runtime values.
+
+The resolved identity is reused by generated media stream URLs, `Sessions/Playing*` progress requests, `EmbyApiThin`, the full `EmbyApi`, downloader stream URLs, and MediaBrowser authorization. PotPlayer HTTP(S) launches additionally use its documented `/user_agent=` CLI option so the configured User-Agent reaches the actual media request rather than only Python-originated API requests.
 
 ## Floppy bridge
 
@@ -32,7 +39,7 @@ Floppy network work is serialized off the polling thread. The bridge maintains t
 
 `config_gui.py` is a standalone entry point. It uses stdlib Tkinter and `utils/config_editor.py`; the server never imports it.
 
-Common fields are written with a comment-preserving INI updater. The Advanced INI tab exposes the complete file for existing path maps and rarely used options. A sanitized snapshot written by `utils/config_state.py` lets the GUI display the latest parsed request without storing media-server credentials.
+Common fields are written with a comment-preserving INI updater. The Advanced INI tab exposes the complete file for existing path maps and rarely used options. A sanitized snapshot written by `utils/config_state.py` lets the GUI display the latest parsed request, including the effective non-secret Emby identity, without storing media-server credentials.
 
 ## PotPlayer compatibility
 

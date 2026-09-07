@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Union
 
 from utils.configs import configs, MyLogger
+from utils.emby_identity import identity_headers, identity_params, resolve_emby_identity
 
 ssl_context = ssl.SSLContext() if configs.raw.getboolean('dev', 'skip_certificate_verify', fallback=False) else None
 bangumi_api_cache = {'cache_time': time.time(), 'bangumi': None}
@@ -234,16 +235,29 @@ def change_emby_play_position(scheme, netloc, item_id, api_key, stop_sec, play_s
         'X-Emby-Client': 'embyToLocalPlayer',
         'X-Emby-Device-Name': 'embyToLocalPlayer',
     }
+    identity = kwargs.get('emby_identity') or resolve_emby_identity(
+        netloc=netloc,
+        device_id=device_id,
+        device_name='embyToLocalPlayer',
+        client='embyToLocalPlayer',
+        user_agent='embyToLocalPlayer/1.1',
+    )
+    headers = None
+    if identity.get('enabled'):
+        params.update(identity_params(identity, token=api_key))
+        headers = identity_headers(identity, token=api_key)
     if not kwargs.get('update_success'):  # 由实时回传功能标记
         # 若省略该请求，低版本 Emby/4.8.0.64 继续观看无法新增条目，高版本 Emby 直接回传失败。
         requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing',
                         params=params,
+                        headers=headers,
                         _json={
                             'ItemId': item_id,
                             'PlaySessionId': play_session_id,
                         })
     requests_urllib(f'{scheme}://{netloc}/emby/Sessions/Playing/Stopped',
                     params=params,
+                    headers=headers,
                     _json={
                         'PositionTicks': ticks,
                         'ItemId': item_id,
@@ -316,6 +330,11 @@ def realtime_playing_request_sender(data, cur_sec, method='playing'):
         'X-Emby-Device-Id': data['device_id'],
         'X-Emby-Device-Name': 'embyToLocalPlayer',
     }
+    headers = data['headers']
+    identity = data.get('emby_identity')
+    if is_emby and identity and identity.get('enabled'):
+        params.update(identity_params(identity, token=data['api_key']))
+        headers = identity_headers(identity, token=data['api_key'], base=headers)
     _json = {
         'EventName': 'timeupdate',
         'ItemId': data['item_id'],
@@ -329,7 +348,7 @@ def realtime_playing_request_sender(data, cur_sec, method='playing'):
         requests_urllib(f'{data["scheme"]}://{data["netloc"]}{emby_str}/{url_path}',
                         params=params,
                         _json=_json,
-                        headers=data['headers'],
+                        headers=headers,
                         timeout=10)
     except Exception:
         time.sleep(30)

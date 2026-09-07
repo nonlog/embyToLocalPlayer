@@ -55,7 +55,24 @@ etlp - Emby/Jellyfin 调用 PotPlayer mpv IINA MPC VLC 播放，并回传播放�
 python config_gui.py
 ```
 
-GUI 可编辑播放器/请求覆盖/网络与行为/PotPlayer/Floppy 参数，并可查看最近一次经过脱敏的媒体服务器请求。Floppy 页会显示推荐值；`completed_percent` 提供 `80 / 90 / 95` 下拉选项，其中 `90` 为推荐值。保存内容仍写回 INI；关闭 GUI 后后台服务照常独立运行。
+GUI 可编辑播放器/请求覆盖/Emby 客户端身份/网络与行为/PotPlayer/Floppy 参数，并可查看最近一次经过脱敏的媒体服务器请求。Floppy 页会显示推荐值；`completed_percent` 提供 `80 / 90 / 95` 下拉选项，其中 `90` 为推荐值。保存内容仍写回 INI；关闭 GUI 后后台服务照常独立运行。
+
+> Emby 客户端 / 设备身份覆盖（可选）
+
+`Emby identity` 页可统一控制 ETLP 向 Emby 发送的客户端身份。关闭时保持旧行为；开启后只有非空字段会覆盖原值：
+
+```ini
+[emby_identity]
+enable = yes
+enable_host = emby.example.com
+device_id = stable-device-id
+device_name = Pixel 10 Pro
+client = Emby for Android
+version = 3.4.16
+user_agent = Mozilla/5.0 (...)
+```
+
+这些值会同步用于 ETLP 的 Emby API/PlaybackInfo/进度回传、生成给播放器的 Emby stream URL，以及 `MediaBrowser` authorization。`client` 对应 `X-Emby-Client`，`version` 对应 `X-Emby-Client-Version`。PotPlayer 播放 HTTP(S) 媒体时还会使用官方 CLI 的 `/user_agent=` 参数，把配置的 User-Agent 真正带到媒体流请求；本地文件不会追加该参数。`enable_host = .` 表示全部 Emby 主机。建议 `device_id` 使用长期稳定值，避免每次改动都被服务端视为不同设备。
 
 > Floppy（可选）
 

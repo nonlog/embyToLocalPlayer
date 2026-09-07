@@ -36,3 +36,12 @@
 - [x] Green GitHub Actions on feature branch (implementation commits validated; final commit rechecked before promotion).
 - [x] Update handoff with Windows validation findings.
 - [ ] Commit/push with Codex identity and open/merge PR according to project policy.
+
+## S5 - Emby client identity overrides
+
+- [x] Configurable DeviceId, device name, app/client, app version and User-Agent.
+- [x] Host-scoped opt-in behavior with blank fields inheriting existing values.
+- [x] Apply identity to stream URL query parameters, MediaBrowser authorization, helper APIs and playback progress requests.
+- [x] Pass configured User-Agent to PotPlayer HTTP(S) playback via its documented `/user_agent=` CLI switch.
+- [x] Surface the identity in the standalone GUI and sanitized last-request snapshot.
+- [x] Add unit coverage for disabled behavior, host filtering, header/query mapping and PotPlayer User-Agent injection.

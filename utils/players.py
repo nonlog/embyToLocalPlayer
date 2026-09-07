@@ -683,8 +683,19 @@ def _pot_add_instance_arg(cmd, mode):
     return cmd
 
 
-def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True, **_):
+def _pot_apply_emby_identity_args(cmd, data=None):
+    identity = (data or {}).get('emby_identity') or {}
+    if identity.get('enabled') and identity.get('user_agent') and len(cmd) > 1 \
+            and str(cmd[1]).lower().startswith(('http://', 'https://')):
+        if not any(str(arg).lower().startswith('/user_agent=') for arg in cmd[2:]):
+            cmd.append(f'/user_agent={identity["user_agent"]}')
+    return cmd
+
+
+def pot_player_start(cmd: list, start_sec=None, sub_file=None, media_title=None, get_stop_sec=True,
+                     data=None, **_):
     _pot_add_instance_arg(cmd, 'new')
+    _pot_apply_emby_identity_args(cmd, data)
     if sub_file:
         if 'Plex-Token' in sub_file or '.sup' in sub_file:
             sub_name = 'pot sub.srt'

@@ -8,6 +8,7 @@ OPTION_RE = re.compile(r'^([ \t]*)([^#;][^=]*?)([ \t]*=[ \t]*)(.*?)(\r?\n)?$')
 GUI_BOOL_DEFAULTS = {
     ('emby', 'update_progress'): True,
     ('emby', 'fullscreen'): True,
+    ('emby_identity', 'enable'): False,
     ('potplayer', 'controlled_instance'): True,
     ('floppy', 'enable'): False,
     ('floppy', 'verify_ssl'): True,
@@ -18,6 +19,7 @@ GUI_BOOL_DEFAULTS = {
 }
 
 GUI_TEXT_DEFAULTS = {
+    ('emby_identity', 'enable_host'): '.',
     ('potplayer', 'pause_detect_seconds'): '3',
     ('floppy', 'progress_interval'): '30',
     ('floppy', 'completed_percent'): '90',

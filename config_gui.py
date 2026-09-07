@@ -16,6 +16,7 @@ from utils.config_editor import (get_boolean_with_runtime_default, get_text_with
 
 BOOL_FIELDS = {
     ('emby', 'update_progress'), ('emby', 'fullscreen'),
+    ('emby_identity', 'enable'),
     ('potplayer', 'controlled_instance'), ('floppy', 'enable'),
     ('floppy', 'verify_ssl'), ('dev', 'use_system_proxy'),
     ('dev', 'skip_certificate_verify'), ('dev', 'pretty_title'),
@@ -27,6 +28,12 @@ CHOICE_FIELDS = {
 }
 
 FIELD_HINTS = {
+    ('emby_identity', 'enable_host'): '. = all Emby hosts',
+    ('emby_identity', 'device_id'): 'Blank = keep the incoming DeviceId',
+    ('emby_identity', 'device_name'): 'Maps to Device / X-Emby-Device-Name',
+    ('emby_identity', 'client'): 'App name: Client / X-Emby-Client',
+    ('emby_identity', 'version'): 'App version: Version / X-Emby-Client-Version',
+    ('emby_identity', 'user_agent'): 'HTTP User-Agent sent to Emby',
     ('floppy', 'enable_host'): '. = all media-server hosts',
     ('floppy', 'progress_interval'): '30 s recommended',
     ('floppy', 'completed_percent'): '80 lenient · 90 recommended · 95 strict',
@@ -52,6 +59,15 @@ TABS = {
         ('Start seconds', 'request_override', 'start_sec'),
         ('Total seconds', 'request_override', 'total_sec'),
         ('Disk mode (yes/no; blank = unchanged)', 'request_override', 'mount_disk_mode'),
+    ],
+    'Emby identity': [
+        ('Enable identity overrides', 'emby_identity', 'enable'),
+        ('Emby hosts', 'emby_identity', 'enable_host'),
+        ('Device ID', 'emby_identity', 'device_id'),
+        ('Device name', 'emby_identity', 'device_name'),
+        ('App / client name', 'emby_identity', 'client'),
+        ('App version', 'emby_identity', 'version'),
+        ('User-Agent', 'emby_identity', 'user_agent'),
     ],
     'PotPlayer': [
         ('Direct executable', 'potplayer', 'direct_exe'),

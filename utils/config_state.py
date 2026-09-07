@@ -23,7 +23,7 @@ def request_snapshot(data):
     keys = ('server', 'server_version', 'netloc', 'file_path', 'media_path', 'stream_url',
             'start_sec', 'total_sec', 'media_title', 'sub_file', 'mount_disk_mode', 'item_id',
             'media_source_id', 'play_session_id', 'Type', 'SeriesName', 'ParentIndexNumber',
-            'IndexNumber', 'ProviderIds')
+            'IndexNumber', 'ProviderIds', 'emby_identity')
     source = dict(data.get('main_ep_info') or {})
     source.update(data)
     result = {}

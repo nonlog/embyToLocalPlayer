@@ -5,6 +5,7 @@ import re
 import urllib.parse
 
 from utils.configs import configs, MyLogger
+from utils.emby_identity import identity_headers, identity_params, resolve_emby_identity
 from utils.net_tools import multi_thread_requests, requests_urllib, get_redirect_url
 from utils.tools import (show_version_info, main_ep_to_title, main_ep_intro_time, logger_setup, version_prefer_emby,
                          match_version_range, sub_via_other_media_version, force_disk_mode_by_path,
@@ -82,6 +83,19 @@ def parse_received_data_emby(received_data):
     api_key = query['X-Emby-Token'] if is_emby else jellyfin_auth['Token']
     scheme, netloc = api_client['_serverAddress'].split('://')
     device_id = query['X-Emby-Device-Id'] if is_emby else jellyfin_auth['DeviceId']
+    emby_identity = None
+    if is_emby:
+        emby_identity = resolve_emby_identity(
+            netloc=netloc,
+            device_id=device_id,
+            device_name=query.get('X-Emby-Device-Name') or api_client.get('_deviceName') or 'embyToLocalPlayer',
+            client=query.get('X-Emby-Client') or api_client.get('_appName') or 'embyToLocalPlayer',
+            version=query.get('X-Emby-Client-Version') or api_client.get('_appVersion') or '',
+            user_agent=extra_data.get('userAgent') or headers.get('User-Agent') or 'embyToLocalPlayer/1.1',
+        )
+        if emby_identity['enabled']:
+            device_id = emby_identity['device_id'] or device_id
+            headers = identity_headers(emby_identity, token=api_key, base=headers)
     sub_index = int(query.get('SubtitleStreamIndex', -1))
     logger_setup(api_key=api_key, netloc=netloc)
 
@@ -133,9 +147,17 @@ def parse_received_data_emby(received_data):
         stream_name = 'main'
         container = '.m3u8'
         logger.info('WARNING: bluray bdmv found, may trigger transcode')
-    stream_url = f'{scheme}://{netloc}{extra_str}/videos/{item_id}/{stream_name}{container}' \
-                 f'?DeviceId={device_id}&MediaSourceId={media_source_id}' \
-                 f'&PlaySessionId={play_session_id}&api_key={api_key}&Static=true'
+    stream_params = {
+        'DeviceId': device_id,
+        'MediaSourceId': media_source_id,
+        'PlaySessionId': play_session_id,
+        'api_key': api_key,
+        'Static': 'true',
+    }
+    if emby_identity and emby_identity['enabled']:
+        stream_params.update(identity_params(emby_identity))
+    stream_url = (f'{scheme}://{netloc}{extra_str}/videos/{item_id}/{stream_name}{container}?'
+                  f'{urllib.parse.urlencode(stream_params)}')
     stream_netloc = netloc
     if is_http_direct_strm := is_strm and strm_direct and is_http_source:
         stream_url = source_path
@@ -238,6 +260,7 @@ def parse_received_data_emby(received_data):
         media_title=media_title,
         play_session_id=play_session_id,
         device_id=device_id,
+        emby_identity=emby_identity,
         headers=headers,
         item_id=item_id,
         media_source_id=media_source_id,
